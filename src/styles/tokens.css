@@ -1,0 +1,29 @@
+:root {
+  --bg:           #0c0f18;
+  --surface:      #13182a;
+  --surface-2:    #1a2035;
+  --surface-3:    #212842;
+  --accent:       #c9a84c;
+  --accent-dim:   #7a6430;
+  --accent-lt:    #e9c86c;
+  --cream:        #ede8dc;
+  --cream-dim:    #a09a8e;
+  --muted:        #5c6078;
+  --border:       #232a42;
+  --border-lt:    #2e3858;
+
+  --font-body:    'Lora', Georgia, serif;
+  --font-display: 'Cinzel', serif;
+  --font-serif:   'Cormorant Garamond', Georgia, serif;
+
+  --j1:    #c9a84c;
+  --j2:    #4A7C6F;
+  --j3:    #7B6FA0;
+  --j-rom: #B85042;
+  --j-pst: #5B8DB8;
+
+  --city-writing:   #e9c86c;
+  --city-recipient: #4A7C6F;
+  --city-major:     #c9a84c;
+  --city-minor:     #2a3d5a;
+}
