@@ -65,18 +65,32 @@ export default function BookDetailPanel({ book, onClose }) {
           )}
 
           <div className="bdp-study-sep" />
-          {book.id === 'philippians' ? (
-            <button
-              className="bdp-study-btn"
-              onClick={() => window.open('/philippians-study.html', '_blank')}
-            >
-              Study Guide
-            </button>
-          ) : (
-            <button className="bdp-study-btn bdp-study-btn--disabled" disabled>
-              Study Guide — coming soon
-            </button>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {book.id === 'philippians' ? (
+              <button
+                className="bdp-study-btn"
+                onClick={() => window.open('/philippians-study.html', '_blank')}
+              >
+                Study Guide
+              </button>
+            ) : (
+              <button className="bdp-study-btn bdp-study-btn--disabled" disabled>
+                Study Guide — coming soon
+              </button>
+            )}
+            {book.id === 'philippians' ? (
+              <button
+                className="bdp-study-btn"
+                onClick={() => window.open('/philippians-map.html', '_blank')}
+              >
+                Maps &amp; Timeline →
+              </button>
+            ) : (
+              <button className="bdp-study-btn bdp-study-btn--disabled" disabled>
+                Maps &amp; Timeline — coming soon
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>
