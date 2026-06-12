@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import MapView from './components/MapView'
 import FilterPanel from './components/FilterPanel'
 import TimelineBar from './components/TimelineBar'
@@ -207,6 +208,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <Analytics />
       <header className="app-header">
         <h1>Paul's World</h1>
       </header>
