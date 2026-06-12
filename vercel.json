@@ -1,13 +1,1 @@
-{
-  "headers": [
-    {
-      "source": "/philippians-map.html",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net d3js.org unpkg.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; default-src *"
-        }
-      ]
-    }
-  ]
-}
+{}
