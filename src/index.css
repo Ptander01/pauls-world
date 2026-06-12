@@ -462,6 +462,39 @@ body {
   border: 1px solid var(--border);
 }
 
+.bdp-study-sep {
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+.bdp-study-btn {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: transparent;
+  padding: 10px 20px;
+  border-radius: 3px;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bdp-study-btn:hover {
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.bdp-study-btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bdp-study-btn--disabled:hover {
+  background: transparent;
+}
+
 /* mode tabs */
 .fp-tabs {
   display: flex;

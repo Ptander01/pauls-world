@@ -63,6 +63,20 @@ export default function BookDetailPanel({ book, onClose }) {
               Authorship debated — not in all scholarly canons of undisputed Pauline letters.
             </div>
           )}
+
+          <div className="bdp-study-sep" />
+          {book.id === 'philippians' ? (
+            <button
+              className="bdp-study-btn"
+              onClick={() => window.open('/philippians-study.html', '_blank')}
+            >
+              Study Guide
+            </button>
+          ) : (
+            <button className="bdp-study-btn bdp-study-btn--disabled" disabled>
+              Study Guide — coming soon
+            </button>
+          )}
         </>
       )}
     </div>
