@@ -162,21 +162,78 @@ body {
 /* ── Merged track scroll containers ─────────────────── */
 
 .tld-journey-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
+  display: flex;
+  flex-direction: row;
   flex-shrink: 0;
-  scrollbar-width: none;
   border-bottom: 1px solid rgba(46, 56, 88, 0.6);
 }
-.tld-journey-scroll::-webkit-scrollbar { display: none; }
 
 .tld-letters-scroll {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Fixed left label column — does not scroll */
+.tld-label-col {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(46, 56, 88, 0.5);
+  background: rgba(13, 17, 32, 0.6);
+  z-index: 1;
+}
+
+.tld-label-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(46, 56, 88, 0.4);
+}
+.tld-label-section:last-child { border-bottom: none; }
+
+.tld-label-name {
+  font-family: var(--font-display);
+  font-size: 6.5px;
+  letter-spacing: 1.5px;
+  color: rgba(122, 138, 176, 0.7);
+  text-transform: uppercase;
+  writing-mode: horizontal-tb;
+}
+
+.tld-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+}
+
+.tld-lmark {
+  display: block;
+  cursor: help;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.tld-lmark:hover { opacity: 1; }
+
+/* Scrollable track area (right of label col) */
+.tld-track-area {
   flex: 1;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  min-width: 0;
 }
-.tld-letters-scroll::-webkit-scrollbar { display: none; }
+.tld-track-area::-webkit-scrollbar { display: none; }
+
+.tld-track-area--letters {
+  overflow-y: auto;
+}
 
 .tld-church-section {
   display: flex;

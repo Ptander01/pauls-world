@@ -52,6 +52,47 @@ function JourneyStats({ journey }) {
   )
 }
 
+// Small SVG legend marker with a native tooltip
+function LMark({ shape, color, size = 4, label }) {
+  const w = 14, h = 14, cx = 7, cy = 7
+  return (
+    <span className="tld-lmark" title={label}>
+      <svg width={w} height={h} style={{ overflow: 'visible', display: 'block' }}>
+        {shape === 'circle' && (
+          <circle cx={cx} cy={cy} r={size}
+            fill={color} fillOpacity={0.45}
+            stroke={color} strokeWidth={1} strokeOpacity={0.85} />
+        )}
+        {shape === 'diamond' && (
+          <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`}
+            fill={color} fillOpacity={0.35}
+            stroke={color} strokeWidth={1} strokeOpacity={0.85} />
+        )}
+        {shape === 'bar' && (
+          <rect x={1} y={cy - 3} width={12} height={6} rx={2}
+            fill={color} fillOpacity={0.3}
+            stroke={color} strokeWidth={1} strokeOpacity={0.65} />
+        )}
+      </svg>
+    </span>
+  )
+}
+
+function LabelCol({ sections }) {
+  return (
+    <div className="tld-label-col">
+      {sections.map((sec, i) => (
+        <div key={i} className="tld-label-section" style={sec.flex ? { flex: sec.flex } : { height: sec.height }}>
+          <span className="tld-label-name">{sec.name}</span>
+          <div className="tld-legend-row">
+            {sec.items.map((item, j) => <LMark key={j} {...item} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function TimelineDetail({
   journey,
   churchEvents,
@@ -76,7 +117,7 @@ export default function TimelineDetail({
     return ids
   }, [journeyChurchEvents])
 
-  // Scroll sync between the two merged track containers
+  // Scroll sync on the inner .tld-track-area elements
   const bodyRef    = useRef(null)
   const syncingRef = useRef(false)
 
@@ -84,7 +125,7 @@ export default function TimelineDetail({
     const body = bodyRef.current
     if (!body) return
 
-    const containers = Array.from(body.querySelectorAll('.tld-journey-scroll, .tld-letters-scroll'))
+    const containers = Array.from(body.querySelectorAll('.tld-track-area'))
     if (containers.length < 2) return
 
     function onScroll(e) {
@@ -101,24 +142,66 @@ export default function TimelineDetail({
 
   if (!journey) return null
 
-  const hasLettersContent = churchIds.length > 0
+  const jColor = journey.color
 
   return (
     <div className="tl-detail-body" ref={bodyRef}>
       <JourneyStats journey={journey} />
 
-      {/* Row 1: stops + events in one shared horizontal scroll */}
+      {/* Row 1: stops + events */}
       <div className="tld-journey-scroll">
-        <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
-        <PaulEventTrack journey={journey} timelineYear={timelineYear} />
+        <LabelCol sections={[
+          {
+            name: 'STOPS',
+            height: 130,
+            items: [
+              { shape: 'circle', color: jColor,    size: 3,   label: 'City stop (dot size = length of stay)' },
+              { shape: 'circle', color: '#c9a84c', size: 5,   label: 'Major base (>3 months) — gold glow when active' },
+            ],
+          },
+          {
+            name: 'EVENTS',
+            flex: 1,
+            items: [
+              { shape: 'circle',  color: '#c9a84c', size: 5,   label: 'Major event' },
+              { shape: 'diamond', color: '#c9a84c', size: 5,   label: 'Letter written by Paul' },
+              { shape: 'circle',  color: '#7a3030', size: 4,   label: 'Arrest or imprisonment' },
+              { shape: 'circle',  color: '#7a6430', size: 3,   label: 'Minor event' },
+            ],
+          },
+        ]} />
+        <div className="tld-track-area">
+          <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
+          <PaulEventTrack journey={journey} timelineYear={timelineYear} />
+        </div>
       </div>
 
-      {/* Row 2: letters + church tracks in one shared horizontal scroll */}
-      {hasLettersContent && (
+      {/* Row 2: letters + church tracks */}
+      {churchIds.length > 0 && (
         <div className="tld-letters-scroll">
-          <BookTrack journey={journey} selectedBookId={selectedBookId} onBookSelect={onBookSelect} />
+          <LabelCol sections={[
+            {
+              name: 'LETTERS',
+              height: undefined,
+              flex: undefined,
+              items: [
+                { shape: 'bar',    color: '#c9a84c', label: 'Epistle — bar width = probable date range; click to open' },
+              ],
+            },
+            {
+              name: 'CHURCHES',
+              flex: 1,
+              items: [
+                { shape: 'diamond', color: '#c9a84c', size: 5, label: 'Church founded' },
+                { shape: 'diamond', color: '#4A7C6F', size: 4, label: 'Letter received by church' },
+                { shape: 'circle',  color: '#c9a84c', size: 3, label: 'Financial or material support' },
+                { shape: 'circle',  color: '#7B6FA0', size: 3, label: 'Leadership transition' },
+              ],
+            },
+          ]} />
+          <div className="tld-track-area tld-track-area--letters">
+            <BookTrack journey={journey} selectedBookId={selectedBookId} onBookSelect={onBookSelect} />
 
-          {churchIds.length > 0 && (
             <div className="tld-church-section">
               <div className="ct-pills">
                 {churchIds.map(churchId => {
@@ -154,7 +237,7 @@ export default function TimelineDetail({
                   ))
               }
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
