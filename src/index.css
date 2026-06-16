@@ -56,20 +56,20 @@ body {
   position: relative;
 }
 
-.map-container > div {
+.map-container > .map-svg-wrapper {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.map-container > div > svg {
+.map-container > .map-svg-wrapper > svg {
   display: block;
   width: 100%;
   height: 100%;
   cursor: grab;
 }
 
-.map-container > div > svg:active {
+.map-container > .map-svg-wrapper > svg:active {
   cursor: grabbing;
 }
 

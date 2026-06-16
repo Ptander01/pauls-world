@@ -836,7 +836,7 @@ export default function MapView({
   }, [hoveredCityId])
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={containerRef} className="map-svg-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
