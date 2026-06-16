@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import * as d3 from 'd3'
 import * as topojson from 'topojson-client'
 import countries50m from 'world-atlas/countries-50m.json'
@@ -6,6 +6,15 @@ import journeyData from '../data/pauline-journeys-data.json'
 
 const W = 1200
 const H = 680
+
+function haversineKm([lon1, lat1], [lon2, lat2]) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return Math.round(R * 2 * Math.asin(Math.sqrt(a)))
+}
 
 const JOURNEY_MAP = {
   'journey-1':    journeyData.colorSystem.journey1,
@@ -140,6 +149,38 @@ function getPlayZoom(location) {
   return 1.6
 }
 
+// Scale bar showing a fixed 500 km reference in the bottom-right corner
+function ScaleBar({ projection }) {
+  const TARGET_KM = 500
+  const R = 6371
+  // Compute pixel width for TARGET_KM at the map's center latitude (37°N)
+  const centerLat = 37 * Math.PI / 180
+  const dLon = (TARGET_KM / R) / Math.cos(centerLat) * (180 / Math.PI)
+  const [x0] = projection([26, 37])
+  const [x1] = projection([26 + dLon, 37])
+  const barW = Math.round(x1 - x0)
+
+  // Position in SVG units, bottom-right
+  const bx = W - barW - 40
+  const by = H - 28
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+    >
+      <line x1={bx} y1={by} x2={bx + barW} y2={by} stroke="#7a8ab0" strokeWidth={1.5} />
+      <line x1={bx} y1={by - 5} x2={bx} y2={by + 5} stroke="#7a8ab0" strokeWidth={1.5} />
+      <line x1={bx + barW} y1={by - 5} x2={bx + barW} y2={by + 5} stroke="#7a8ab0" strokeWidth={1.5} />
+      <text x={bx + barW / 2} y={by - 8} textAnchor="middle"
+        fontFamily="Cinzel, serif" fontSize={9} letterSpacing={2} fill="#7a8ab0">
+        {TARGET_KM} KM
+      </text>
+    </svg>
+  )
+}
+
 export default function MapView({
   activeJourneys,
   selectedBookId,
@@ -154,10 +195,16 @@ export default function MapView({
 }) {
   const svgRef      = useRef(null)
   const mapGRef     = useRef(null)
+  const containerRef = useRef(null)
   const kRef        = useRef(1)
   const zoomRef     = useRef(null)
   const lineDataRef = useRef({})   // journey.id → { node, total, wps, wpLengths }
   const lastPanRef  = useRef(0)
+
+  const [tooltipCity,   setTooltipCity]   = useState(null)
+  const [tooltipPos,    setTooltipPos]    = useState({ x: 0, y: 0 })
+  const [segmentTip,    setSegmentTip]    = useState(null)  // { from, to, km, x, y }
+
 
   const land = useMemo(
     () => topojson.feature(countries50m, countries50m.objects.land),
@@ -324,9 +371,9 @@ export default function MapView({
 
       let baseOpacity
       if (selectedBook) {
-        baseOpacity = isBookJourney ? (isActive ? 0.3 : 0.07) : (isActive ? 0.08 : 0.03)
+        baseOpacity = isBookJourney ? 0.3 : 0
       } else {
-        baseOpacity = isActive ? 0.45 : 0.1
+        baseOpacity = isActive ? 0.85 : 0
       }
 
       const waypoints = journey.waypoints
@@ -364,6 +411,43 @@ export default function MapView({
         pathEl
           .attr('stroke-dasharray', `${total} ${total}`)
           .attr('stroke-dashoffset', 0)
+      }
+
+      // Invisible per-segment hit targets for distance hover
+      if (isActive && baseOpacity > 0) {
+        for (let i = 0; i < waypoints.length - 1; i++) {
+          const cityA = cityById[waypoints[i].cityId]
+          const cityB = cityById[waypoints[i + 1].cityId]
+          if (!cityA || !cityB) continue
+          const segWps = [waypoints[i], waypoints[i + 1]]
+          linesG.append('path')
+            .datum(segWps)
+            .attr('d', lineGen)
+            .attr('fill', 'none')
+            .attr('stroke', 'transparent')
+            .attr('stroke-width', 12)
+            .attr('cursor', 'crosshair')
+            .on('mouseover', function(event) {
+              const rect = containerRef.current?.getBoundingClientRect()
+              if (!rect) return
+              const km = haversineKm(cityA.coords, cityB.coords)
+              setSegmentTip({
+                from: cityA.name,
+                to:   cityB.name,
+                km,
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top,
+              })
+            })
+            .on('mousemove', function(event) {
+              const rect = containerRef.current?.getBoundingClientRect()
+              if (!rect) return
+              setSegmentTip(t => t ? { ...t, x: event.clientX - rect.left, y: event.clientY - rect.top } : t)
+            })
+            .on('mouseout', function() {
+              setSegmentTip(null)
+            })
+        }
       }
 
       if (isBookJourney && selectedBook) {
@@ -457,6 +541,17 @@ export default function MapView({
     const dotsG = mapG.append('g')
     const labsG = mapG.append('g').attr('pointer-events', 'none')
 
+    // Cities visited by any currently-active journey, or the selected book's journey
+    const relevantJourneyIds = new Set([
+      ...activeJourneys,
+      ...(selectedBook ? [selectedBook.journeyId] : []),
+    ])
+    const activeCityIds = new Set(
+      journeyData.journeys
+        .filter(j => relevantJourneyIds.has(j.id))
+        .flatMap(j => j.waypoints.map(w => w.cityId))
+    )
+
     const usedIds = new Set(
       journeyData.journeys.flatMap(j => j.waypoints.map(w => w.cityId))
     )
@@ -475,16 +570,41 @@ export default function MapView({
       const [x, y] = pt
       if (x < -20 || x > W + 20 || y < -20 || y > H + 20) return
 
+      const isActive = activeCityIds.has(city.id)
+
       const r    = city.tier === 1 ? 5 : city.tier === 2 ? 3.5 : 2.25
-      const fill = city.tier === 1 ? '#c9a84c' : '#a09a8e'
-      const fo   = city.tier === 1 ? 1 : city.tier === 2 ? 0.75 : 0.55
+      const fill = isActive ? (city.tier === 1 ? '#c9a84c' : '#a09a8e') : 'none'
+      const fo   = isActive ? (city.tier === 1 ? 1 : city.tier === 2 ? 0.75 : 0.55) : 0
 
       dotsG.append('circle')
         .attr('class', 'city-dot')
         .attr('data-city', city.id)
         .attr('cx', x).attr('cy', y).attr('r', r)
         .attr('fill', fill).attr('fill-opacity', fo)
-        .attr('stroke', '#060d1a').attr('stroke-width', city.tier === 1 ? 1 : 0.5)
+        .attr('stroke', isActive ? '#060d1a' : '#a09a8e')
+        .attr('stroke-width', isActive ? (city.tier === 1 ? 1 : 0.5) : 0.5)
+        .attr('stroke-opacity', isActive ? 1 : 0.15)
+        .attr('cursor', isActive ? 'pointer' : 'default')
+        .on('mouseover', function(event) {
+          if (!isActive) return
+          const rect = containerRef.current?.getBoundingClientRect()
+          if (!rect) return
+          setTooltipCity(city)
+          setTooltipPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+          onCityHover?.(city.id)
+        })
+        .on('mousemove', function(event) {
+          if (!isActive) return
+          const rect = containerRef.current?.getBoundingClientRect()
+          if (!rect) return
+          setTooltipPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+        })
+        .on('mouseout', function() {
+          setTooltipCity(null)
+          onCityHover?.(null)
+        })
+
+      if (!isActive) return
 
       if (city.tier === 1) {
         const off = ANCHOR_OFFSETS[city.labelAnchor] ?? ANCHOR_OFFSETS['right']
@@ -579,7 +699,7 @@ export default function MapView({
             .attr('stroke-dasharray', `${total} ${total}`)
             .attr('stroke-dashoffset', 0)
         }
-        d3.select(node).attr('stroke-opacity', activeJourneys.has(journey.id) ? baseOpacity : 0.1)
+        d3.select(node).attr('stroke-opacity', activeJourneys.has(journey.id) ? baseOpacity : 0)
         return
       }
 
@@ -687,14 +807,91 @@ export default function MapView({
 
   }, [detailJourneyId, projection, cityById])
 
+  // ── Timeline stop hover → glow city dot on map ────────────────────────
+  useEffect(() => {
+    if (!mapGRef.current) return
+    const g = d3.select(mapGRef.current)
+
+    g.selectAll('.city-dot').each(function() {
+      const el     = d3.select(this)
+      const cityId = el.attr('data-city')
+      const isHovered = cityId === hoveredCityId
+
+      if (isHovered) {
+        el.raise()
+          .transition('glow').duration(120)
+          .attr('r', function() { return parseFloat(el.attr('r')) * 1.0 }) // preserve r, just trigger filter
+          .attr('filter', 'url(#city-glow)')
+          .attr('stroke', '#c9a84c')
+          .attr('stroke-width', 2)
+          .attr('stroke-opacity', 1)
+      } else {
+        el.transition('glow').duration(200)
+          .attr('filter', null)
+          .attr('stroke', '#060d1a')
+          .attr('stroke-width', el.attr('data-city') ? 0.5 : 0.5)
+          .attr('stroke-opacity', 1)
+      }
+    })
+  }, [hoveredCityId])
+
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <rect width={W} height={H} fill="#060d1a" />
-      <g ref={mapGRef} />
-    </svg>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ width: '100%', height: '100%' }}
+      >
+        <defs>
+          <filter id="city-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <rect width={W} height={H} fill="#060d1a" />
+        <g ref={mapGRef} />
+      </svg>
+
+      {/* Scale bar — fixed 500 km reference, bottom-right */}
+      <ScaleBar projection={projection} />
+
+      {segmentTip && !tooltipCity && (
+        <div className="city-tooltip" style={{
+          position: 'absolute',
+          left: segmentTip.x + 16,
+          top:  segmentTip.y - 12,
+          pointerEvents: 'none',
+        }}>
+          <div className="city-tooltip__name" style={{ fontSize: 11 }}>
+            {segmentTip.from} → {segmentTip.to}
+          </div>
+          <div className="city-tooltip__desc" style={{ fontSize: 13, marginBottom: 0 }}>
+            ~{segmentTip.km.toLocaleString()} km
+          </div>
+        </div>
+      )}
+
+      {tooltipCity && (
+        <div className="city-tooltip" style={{
+          position: 'absolute',
+          left: tooltipPos.x + 16,
+          top:  tooltipPos.y - 12,
+          pointerEvents: 'none',
+        }}>
+          <div className="city-tooltip__name">{tooltipCity.name}</div>
+          {tooltipCity.modernName && (
+            <div className="city-tooltip__modern">{tooltipCity.modernName}</div>
+          )}
+          <div className="city-tooltip__desc">{tooltipCity.description}</div>
+          {tooltipCity.ref && (
+            <div className="city-tooltip__ref">{tooltipCity.ref}</div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

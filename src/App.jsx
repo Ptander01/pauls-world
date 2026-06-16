@@ -253,6 +253,7 @@ export default function App() {
         churchEvents={journeyData.churchEvents}
         activeChurchTracks={activeChurchTracks}
         onChurchTrackToggle={handleChurchTrackToggle}
+        onCityHover={setHoveredCityId}
       />
       <PlayControls
         isPlaying={isPlaying}

@@ -8,6 +8,7 @@ export default function TimelineDetail({
   activeChurchTracks,
   onChurchTrackToggle,
   timelineYear,
+  onCityHover,
 }) {
   // Church IDs that have events in this journey, in encounter order
   const journeyChurchEvents = useMemo(
@@ -53,7 +54,7 @@ export default function TimelineDetail({
 
   return (
     <div className="tl-detail-body" ref={bodyRef}>
-      <PaulStopTrack journey={journey} timelineYear={timelineYear} />
+      <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
 
       {churchIds.length > 0 && (
         <>

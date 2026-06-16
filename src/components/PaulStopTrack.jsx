@@ -24,7 +24,7 @@ function formatDuration(days) {
   return `${Math.round(days / 365)} yr`
 }
 
-export default function PaulStopTrack({ journey, timelineYear }) {
+export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
   const [hoveredIdx, setHoveredIdx] = useState(null)
 
   const stops = useMemo(() => {
@@ -80,8 +80,8 @@ export default function PaulStopTrack({ journey, timelineYear }) {
           return (
             <g
               key={`${wp.cityId}-${i}`}
-              onMouseEnter={() => setHoveredIdx(i)}
-              onMouseLeave={() => setHoveredIdx(null)}
+              onMouseEnter={() => { setHoveredIdx(i); onCityHover?.(wp.cityId) }}
+              onMouseLeave={() => { setHoveredIdx(null); onCityHover?.(null) }}
             >
               <rect
                 x={x} y={RECT_Y} width={w} height={RECT_H} rx={3}
