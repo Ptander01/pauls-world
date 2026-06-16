@@ -71,7 +71,7 @@ export default function ChurchTrack({ journey, churchId, events, timelineYear })
         <line
           x1={STOP_MARGIN_X} x2={totalWidth - STOP_MARGIN_X}
           y1={TRACK_Y} y2={TRACK_Y}
-          stroke="#2e3858" strokeWidth={1}
+          stroke="#c9a84c" strokeWidth={1} strokeOpacity={0.15} strokeDasharray="4 4"
         />
 
         {/* Church name */}
