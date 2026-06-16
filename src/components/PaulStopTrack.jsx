@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import journeyData from '../data/pauline-journeys-data.json'
+import { buildStopLayout } from '../utils/stopLayout'
 
 const MIN_W    = 24
 const GAP      = 2
@@ -28,27 +29,22 @@ function formatDuration(days) {
 export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
   const [hoveredIdx, setHoveredIdx] = useState(null)
 
-  const stops = useMemo(() => {
-    if (!journey) return []
-    const wps = journey.waypoints
-    const totalDays = wps.reduce((s, w) => s + (w.durationDays || 1), 0)
-    let x = MARGIN_X
-    const arr = wps.map((wp, i) => {
-      const w = Math.max(MIN_W, (wp.durationDays || 1) / totalDays * 1100)
-      const city = cityById[wp.cityId]
-      const result = { wp, city, x, w, i }
-      x += w + GAP
-      return result
-    })
-    // Two-pass: mark stops where both this stop and an immediate neighbor are at MIN_W.
-    // These collide visually and get a tick mark + tooltip instead of inline labels.
-    return arr.map((stop, i) => ({
+  const { stops, totalWidth } = useMemo(() => {
+    if (!journey) return { stops: [], totalWidth: 400 }
+    const layout = buildStopLayout(journey)
+    const arr = layout.stops.map((s, i) => ({
+      ...s,
+      city: cityById[s.wp.cityId],
+      i,
+    }))
+    const marked = arr.map((stop, i) => ({
       ...stop,
       colliding: stop.w === MIN_W && (
         (i > 0 && arr[i - 1].w === MIN_W) ||
         (i < arr.length - 1 && arr[i + 1].w === MIN_W)
       ),
     }))
+    return { stops: marked, totalWidth: layout.totalWidth }
   }, [journey])
 
   const currentStopIdx = useMemo(() => {
@@ -61,10 +57,6 @@ export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
     }
     return -1
   }, [timelineYear, stops])
-
-  const totalWidth = stops.length > 0
-    ? stops[stops.length - 1].x + stops[stops.length - 1].w + MARGIN_X
-    : 400
 
   if (!journey) return null
 

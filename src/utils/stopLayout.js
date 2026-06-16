@@ -2,11 +2,15 @@
 export const STOP_MIN_W    = 24
 export const STOP_GAP      = 2
 export const STOP_MARGIN_X = 8
-const SCALE = 1100
+
+function getScale() {
+  return typeof window !== 'undefined' ? Math.max(1100, window.innerWidth - 60) : 1100
+}
 
 export function buildStopLayout(journey) {
   if (!journey) return { stops: [], totalWidth: 400, xFromYear: () => STOP_MARGIN_X }
 
+  const SCALE = getScale()
   const wps = journey.waypoints
   const totalDays = wps.reduce((s, w) => s + (w.durationDays || 1), 0)
   let x = STOP_MARGIN_X
