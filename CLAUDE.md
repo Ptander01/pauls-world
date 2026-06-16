@@ -72,7 +72,7 @@ All map/journey/book/city data lives in `src/data/pauline-journeys-data.json`. T
 
 - `journeys` — 5 entries with `id`, `shortName`, `dateRange`, `color`, `waypoints[]`; each waypoint has `cityId`, `year`, `durationDays`, `note`, `ref`
 - `books` — 13 entries with `id`, `abbrev`, `dateRange`, `attribution` (`"undisputed"` | `"debated"`), `dateDebated` (bool), `journeyId`
-- `cities` — 57 entries with `id`, `coords [lon, lat]`, `tier` (1/2/3), `name`
+- `cities` — 57 entries with `id`, `coords [lon, lat]`, `tier` (1/2/3), `name`, `fullName`, `modernName`, `province`, `description`, `ref`
 - `churchEvents` — 11 entries with `id`, `churchId`, `cityId`, `year`, `journeyId`, `label`, `sublabel`, `type`, `ref`; types: `"founding"`, `"letter-received"`, `"support"`, `"leadership"`
 - `colorSystem` — journey color objects (`primary`, `dim`, `light`)
 - `mapConfig` — projection center `[26, 37]`, scale `950`
@@ -81,11 +81,14 @@ Province boundaries from `public/provinces.geojson` (klokantech Roman Empire dat
 
 ### MapView D3 pattern
 
-Three separate `useEffect` hooks:
+The SVG is wrapped in a `div` (with `containerRef`) so React-managed tooltip overlays can be positioned absolutely over it. The `<svg>` itself fills the div via `width/height: 100%`.
+
+Four separate `useEffect` hooks:
 
 1. **Mount-only** — sets up `d3.zoom()` with `scaleExtent([0.5, 8])`. Zoom transform is applied to `mapGRef` (`<g>`); zoom k is stored in `kRef`. The zoom instance is stored in `zoomRef` for use by the progressive pan effect.
-2. **Render effect** — runs on prop/data changes; calls `mapG.selectAll('*').remove()` (clears children only). Gives each journey path `class="journey-line" data-journey={id}` and primes `stroke-dasharray = "total total"`. After each path is drawn, precomputes arc-length at each waypoint using ternary-search (`getArcLengthAtPoint`) and stores the result in `lineDataRef.current[journey.id]`. City dots get `class="city-dot" data-city={id}`. Calls `applyZoomStyling` at the end.
+2. **Render effect** — runs on prop/data changes; calls `mapG.selectAll('*').remove()` (clears children only). Gives each journey path `class="journey-line" data-journey={id}` and primes `stroke-dasharray = "total total"`. After each path is drawn, precomputes arc-length at each waypoint using ternary-search (`getArcLengthAtPoint`) and stores the result in `lineDataRef.current[journey.id]`. Also appends invisible 12px-wide per-segment hit-target paths over each waypoint pair for distance hover. City dots get `class="city-dot" data-city={id}` and `mouseover`/`mouseout` handlers that set `tooltipCity` + `tooltipPos` state. Calls `applyZoomStyling` at the end.
 3. **Progressive reveal effect** `[timelineYear, activeJourneys, isPlaying, cityById, projection]` — runs every frame during play (and on manual scrub). Updates `stroke-dashoffset` on each active journey path to `total − interpolatedArcLength`, dimming unreached city dots, and (throttled every 250 ms during play) pans the map to Paul's interpolated location via `d3.select(svgRef).transition('pan').duration(600).call(zoomRef.current.transform, ...)`.
+4. **`[hoveredCityId]` glow effect** — imperatively finds the `.city-dot[data-city=hoveredCityId]`, raises it, applies `filter: url(#city-glow)` and gold stroke; clears glow on all other dots. Driven by `hoveredCityId` from App state, which is set by PaulStopTrack stop hover (timeline → map link).
 
 `applyZoomStyling` is a module-level function shared by both effects. All labels scale inversely with k so they hold a constant screen size:
 - Province labels: `font-size = 9/k`
@@ -93,9 +96,21 @@ Three separate `useEffect` hooks:
 - Tier-2 city labels: `font-size = 11/k`, visible at k ≥ 2
 - Tier-3 city labels: `font-size = 9/k`, visible at k ≥ 3.5
 
+**Journey line opacity:** two-mode system. Normal view: active journeys `stroke-opacity: 0.85`, inactive `0` (invisible). Book focus mode: the book's journey `0.3` full line + `0.9` highlighted segment; all other journeys `0` regardless of toggle state.
+
+**City dot and label visibility:** only cities visited by at least one currently-active journey (or the selected book's journey) render with full dots and labels. All other journey cities render as ghost outlines only (`fill: none`, `stroke-opacity: 0.15`) with no label.
+
+**`ScaleBar` component** (defined above `MapView`): a separate SVG overlay (`position: absolute, inset: 0, pointerEvents: none`) showing a 500 km reference bar at bottom-right. Pixel width computed from Haversine: `dLon` for 500 km at 37°N center latitude, projected to screen pixels. Styled in Cinzel 9px `#7a8ab0`.
+
+**Haversine helper** `haversineKm([lon1,lat1], [lon2,lat2])` — module-level, returns integer km using Earth radius 6371 km. Used by segment hit targets to populate the distance tooltip.
+
 Province name normalization: Italian admin regions named `"I"`–`"XI"` in GeoJSON all map to `"italia"`. `"Galatia et Cappadocia"` → `"galatia"`, `"Creta et Cyrene"` → `"creta-cyrenaica"`.
 
 Via Egnatia road layer: rendered between the province group and the journey lines group. Three hardcoded waypoints `[19.47,41.32] → [24.29,41.01] → [26.67,41.67]` (Dyrrachium → Philippi → Byzantium). Dashed gold stroke at 25% opacity, 0.8px width. Label 'VIA EGNATIA' in Cinzel 9px letter-spacing 3 placed above the midpoint (Philippi). Always rendered; not affected by `showProvinces`.
+
+**Tooltip overlays (React state, not D3):**
+- `tooltipCity` / `tooltipPos` — set by city dot `mouseover`; renders `.city-tooltip` card with `name`, `modernName`, `description`, `ref`
+- `segmentTip` — set by journey segment hit-target `mouseover`; renders a compact `.city-tooltip` card showing `From → To · ~N km`; suppressed when `tooltipCity` is active (city hover takes priority)
 
 ### TimelineBar D3 pattern
 
@@ -128,7 +143,7 @@ Activated by clicking any capsule bar in the overview (`data-bar-hit` hit area).
 2. `.ct-pills` (32px) — toggle pills for each church that has `churchEvents` filtered to the active journey; pill color uses `--pill-color` CSS var set to `journey.color`
 3. `.ct-tracks-area` (flex: 1, `overflow-y: auto`) — one `ChurchTrack` per active church ID
 
-Receives `timelineYear` from `TimelineBar` and passes it through to both `PaulStopTrack` and `ChurchTrack` to drive the stop highlight and event pulse animations.
+Receives `timelineYear` and `onCityHover` from `TimelineBar` and passes them through to `PaulStopTrack` and `ChurchTrack` respectively to drive the stop highlight, event pulse animations, and map city glow.
 
 **Scroll sync:** `TimelineDetail` holds `bodyRef` on `.tl-detail-body` and a `syncingRef` flag. A `useEffect` (dependency: `activeChurchTracks`) queries `body.querySelectorAll('.pst-scroll, .ct-track-scroll')` after each render, attaches `scroll` listeners to all matched containers, and syncs `scrollLeft` across the rest on each event. `requestAnimationFrame` resets `syncingRef` after each sync batch to prevent feedback loops without blocking natural scroll events.
 
@@ -138,7 +153,7 @@ Stop width = `max(24px, durationDays/totalDays × 1100)`. City name above in Cin
 
 **Label collision:** `stops` useMemo runs a two-pass build — first pass computes widths, second pass marks each stop `colliding = true` when `stop.w === MIN_W` and at least one immediate neighbor also equals `MIN_W`. Colliding stops show a centered vertical tick mark instead of inline labels; labels appear normally on hover.
 
-Accepts `timelineYear` prop. Computes `currentStopIdx` (via `useMemo`) as the index of the stop whose dwell window brackets the current year: `wp.year ≤ timelineYear ≤ wp.year + durationDays/365`. The matching stop rect gets `fillOpacity=0.4 / strokeOpacity=0.85` (same as hover) — no match returns `-1` so no stop is highlighted (e.g. during transit or outside the journey range).
+Accepts `timelineYear` and `onCityHover` props. Computes `currentStopIdx` (via `useMemo`) as the index of the stop whose dwell window brackets the current year: `wp.year ≤ timelineYear ≤ wp.year + durationDays/365`. The matching stop rect gets `fillOpacity=0.4 / strokeOpacity=0.85` (same as hover) — no match returns `-1` so no stop is highlighted (e.g. during transit or outside the journey range). Stop `onMouseEnter` calls `onCityHover(wp.cityId)`; `onMouseLeave` calls `onCityHover(null)` — this sets `hoveredCityId` in App, which MapView uses to glow the corresponding city dot.
 
 ### ChurchTrack
 
@@ -191,7 +206,7 @@ Below both view-mode sections, always visible: a thin `fp-layer-divider` border 
 ### Styles
 
 - `src/styles/tokens.css` — CSS custom properties for colors, fonts, journey colors (`--j1`–`--j-pst`), city colors
-- `src/index.css` — imports tokens, base reset, layout (`.app`, `.app-header`, `.app-body`, `.map-container`, `.timeline-bar`), all `fp-*` FilterPanel styles, all `bdp-*` BookDetailPanel styles, all `pc-*` PlayControls styles, all `tl-*` timeline detail styles, all `ct-*` church track styles including `@keyframes ctMarkerPulse` and `.ct-marker-pulse` (scale 1→1.8→1 over 600ms, `transform-box: fill-box`)
+- `src/index.css` — imports tokens, base reset, layout (`.app`, `.app-header`, `.app-body`, `.map-container`, `.timeline-bar`), all `fp-*` FilterPanel styles, all `bdp-*` BookDetailPanel styles, all `pc-*` PlayControls styles, all `tl-*` timeline detail styles, all `ct-*` church track styles including `@keyframes ctMarkerPulse` and `.ct-marker-pulse` (scale 1→1.8→1 over 600ms, `transform-box: fill-box`), `.city-tooltip` and child classes (`.city-tooltip__name`, `__modern`, `__desc`, `__ref`) for city and segment distance tooltips. `.map-container > div` and `.map-container > div > svg` replace the old `> svg` selectors since MapView now wraps its SVG in a container div.
 - `src/utils/stopLayout.js` — `buildStopLayout(journey)` shared utility for duration-proportional x layout
 - Google Fonts: Cinzel (display/headings), Cormorant Garamond (serif), Lora (body) — linked in `index.html`
 - `public/icons.svg` — SVG sprite sheet (referenced via `<use href="/icons.svg#...">` if needed)
