@@ -4,11 +4,12 @@ import journeyData from '../data/pauline-journeys-data.json'
 const MIN_W    = 24
 const GAP      = 2
 const MARGIN_X = 8
-const SVG_H    = 70
+const SVG_H    = 100
 const RECT_Y   = 22
 const RECT_H   = 24
 const LABEL_Y  = 15
 const DUR_Y    = 60
+const NOTE_Y   = 80
 
 const cityById = Object.fromEntries(
   journeyData.cities.map(c => [c.id, c])
@@ -128,6 +129,22 @@ export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
                   style={{ fontSize: 'var(--pst-label-size, 10px)', pointerEvents: 'none', userSelect: 'none' }}
                 >
                   {formatDuration(wp.durationDays)}
+                </text>
+              )}
+
+              {/* Note text on hover */}
+              {hovered && wp.note && (
+                <text
+                  x={cx} y={NOTE_Y}
+                  textAnchor="middle"
+                  fontFamily="Cormorant Garamond, Georgia, serif"
+                  fontStyle="italic"
+                  fontSize={9}
+                  fill="#a09a8e"
+                  fillOpacity={0.85}
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {wp.note.length > 55 ? wp.note.slice(0, 52) + '…' : wp.note}
                 </text>
               )}
             </g>

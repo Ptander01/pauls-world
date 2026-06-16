@@ -543,6 +543,8 @@ export default function TimelineBar({
             onChurchTrackToggle={onChurchTrackToggle ?? (() => {})}
             timelineYear={timelineYear}
             onCityHover={onCityHover}
+            selectedBookId={selectedBookId}
+            onBookSelect={onBookClick}
           />
         </div>
       )}

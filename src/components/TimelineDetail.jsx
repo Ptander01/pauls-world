@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react'
 import PaulStopTrack from './PaulStopTrack'
 import PaulEventTrack from './PaulEventTrack'
+import BookTrack from './BookTrack'
 import ChurchTrack from './ChurchTrack'
 
 export default function TimelineDetail({
@@ -10,6 +11,8 @@ export default function TimelineDetail({
   onChurchTrackToggle,
   timelineYear,
   onCityHover,
+  selectedBookId,
+  onBookSelect,
 }) {
   // Church IDs that have events in this journey, in encounter order
   const journeyChurchEvents = useMemo(
@@ -36,7 +39,7 @@ export default function TimelineDetail({
     const body = bodyRef.current
     if (!body) return
 
-    const containers = Array.from(body.querySelectorAll('.pst-scroll, .pet-scroll, .ct-track-scroll'))
+    const containers = Array.from(body.querySelectorAll('.pst-scroll, .bt-scroll, .pet-scroll, .ct-track-scroll'))
     if (containers.length < 2) return
 
     function onScroll(e) {
@@ -56,6 +59,7 @@ export default function TimelineDetail({
   return (
     <div className="tl-detail-body" ref={bodyRef}>
       <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
+      <BookTrack journey={journey} selectedBookId={selectedBookId} onBookSelect={onBookSelect} />
       <PaulEventTrack journey={journey} timelineYear={timelineYear} />
 
       {churchIds.length > 0 && (
