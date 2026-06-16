@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react'
 import PaulStopTrack from './PaulStopTrack'
+import PaulEventTrack from './PaulEventTrack'
 import ChurchTrack from './ChurchTrack'
 
 export default function TimelineDetail({
@@ -35,7 +36,7 @@ export default function TimelineDetail({
     const body = bodyRef.current
     if (!body) return
 
-    const containers = Array.from(body.querySelectorAll('.pst-scroll, .ct-track-scroll'))
+    const containers = Array.from(body.querySelectorAll('.pst-scroll, .pet-scroll, .ct-track-scroll'))
     if (containers.length < 2) return
 
     function onScroll(e) {
@@ -55,6 +56,7 @@ export default function TimelineDetail({
   return (
     <div className="tl-detail-body" ref={bodyRef}>
       <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
+      <PaulEventTrack journey={journey} timelineYear={timelineYear} />
 
       {churchIds.length > 0 && (
         <>

@@ -85,7 +85,7 @@ body {
 }
 
 .timeline-bar--detail {
-  height: 320px;
+  height: 460px;
 }
 
 @media (max-width: 900px) {
@@ -949,4 +949,28 @@ body {
   letter-spacing: 0.06em;
   color: var(--accent-dim);
   font-style: italic;
+}
+
+/* ── PaulEventTrack ─────────────────────────────────────────────────────── */
+.pet-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-top: 1px solid rgba(46, 56, 88, 0.5);
+}
+
+.pet-scroll::-webkit-scrollbar { display: none; }
+
+@keyframes petMarkerPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.7); }
+  100% { transform: scale(1); }
+}
+
+.pet-pulse {
+  animation: petMarkerPulse 600ms ease-out forwards;
+  transform-box: fill-box;
+  transform-origin: center;
 }
