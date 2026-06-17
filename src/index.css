@@ -1151,3 +1151,103 @@ body {
   white-space: nowrap;
   z-index: 1;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE  (≤ 768px)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Mobile hamburger button — hidden on desktop */
+.fp-mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ── Layout ── */
+  .app-header h1 { font-size: 15px; letter-spacing: 0.15em; }
+
+  .app-body { flex-direction: column; }
+
+  .map-container { flex: 1; min-height: 0; }
+
+  /* ── FilterPanel — hidden by default, slides in as drawer ── */
+  .fp {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    max-height: 100%;
+    border-radius: 0;
+    transform: translateX(-110%);
+    transition: transform 0.25s ease;
+    z-index: 50;
+    width: 260px;
+  }
+  .fp--open { transform: translateX(0); }
+
+  /* Semi-transparent backdrop behind open drawer */
+  .fp-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 49;
+  }
+
+  /* Hamburger toggle button */
+  .fp-mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 36px;
+    height: 36px;
+    background: rgba(19, 24, 42, 0.88);
+    border: 1px solid var(--border-lt);
+    border-radius: 4px;
+    color: var(--cream);
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 30;
+  }
+
+  /* ── BookDetailPanel — full width on mobile ── */
+  .bdp {
+    width: 100%;
+    left: 0;
+    transform: translateY(100%);
+    top: auto;
+    height: 70%;
+    border-radius: 12px 12px 0 0;
+    overflow-y: auto;
+  }
+  .bdp--open { transform: translateY(0); }
+
+  /* ── Timeline ── */
+  .timeline-bar { height: 130px; }
+  .timeline-bar--detail { height: 300px; }
+
+  /* Responsive stop label in stops row */
+  .pst-scroll { height: 110px; }
+
+  /* Larger touch targets for pills */
+  .ct-pill { padding: 5px 12px 5px 9px; font-size: 9px; }
+  .fp-pill  { min-height: 34px; }
+  .fp-journey-row { min-height: 44px; }
+
+  /* Detail label column narrower on mobile */
+  .tld-label-col { width: 48px; }
+  .tld-label-name { font-size: 5.5px; }
+
+  /* Hide resize handle on mobile (touch resizing is awkward) */
+  .tl-resize-handle { display: none; }
+
+  /* Prevent double-tap zoom on buttons */
+  button, label, a { touch-action: manipulation; }
+}
+
+@media (max-width: 480px) {
+  .app-header h1 { font-size: 13px; }
+  .bdp { height: 80%; }
+  .timeline-bar { height: 110px; }
+  .timeline-bar--detail { height: 260px; }
+}
