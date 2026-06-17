@@ -307,14 +307,14 @@ export default function TimelineBar({
     // ── Left-side section labels ───────────────────────────────────────
     const SEP_Y = 54
     g.append('line')
-      .attr('x1', 0).attr('x2', 76).attr('y1', SEP_Y).attr('y2', SEP_Y)
+      .attr('x1', 4).attr('x2', 76).attr('y1', SEP_Y).attr('y2', SEP_Y)
       .attr('stroke', '#2e3a58').attr('stroke-width', 1)
     ;[
       { label: 'TIMELINE', cy: (TRACK_Y + SEP_Y) / 2 },
       { label: 'BOOKS',    cy: (SEP_Y + TH) / 2      },
     ].forEach(({ label, cy }) =>
       g.append('text')
-        .attr('x', 14).attr('y', cy + 3)
+        .attr('x', 40).attr('y', cy + 3)
         .attr('text-anchor', 'middle')
         .attr('font-family', 'Cinzel, serif').attr('font-size', 7)
         .attr('letter-spacing', 1).attr('fill', '#7a8ab0')
