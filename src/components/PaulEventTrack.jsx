@@ -16,7 +16,19 @@ const TYPE_STYLE = {
   writes: { fill: '#c9a84c', r: 0,  glow: true,  diamond: true, size: 8 },
 }
 
-export default function PaulEventTrack({ journey, timelineYear, onCityHover }) {
+function cityForYear(journey, year) {
+  const wps = journey.waypoints
+  for (const wp of wps) {
+    const dep = wp.year + (wp.durationDays || 1) / 365
+    if (year >= wp.year && year <= dep) return wp.cityId
+  }
+  // fallback: nearest waypoint by arrival year
+  return wps.reduce((best, wp) =>
+    Math.abs(wp.year - year) < Math.abs(best.year - year) ? wp : best
+  , wps[0])?.cityId ?? null
+}
+
+export default function PaulEventTrack({ journey, timelineYear, onCityHover, hoveredCityId }) {
   const [pulsing,   setPulsing]   = useState(new Set())
   const [hoveredId, setHoveredId] = useState(null)
   const prevYearRef = useRef(null)
@@ -100,7 +112,9 @@ export default function PaulEventTrack({ journey, timelineYear, onCityHover }) {
           const x    = xFromYear(evt.year)
           const s    = TYPE_STYLE[evt.type] ?? TYPE_STYLE.minor
           const above = i % 2 === 0
-          const isHovered  = hoveredId === evt.id
+          const evtCity    = cityForYear(journey, evt.year)
+          const cityMatch  = hoveredCityId && evtCity === hoveredCityId
+          const isHovered  = hoveredId === evt.id || cityMatch
           const isPulsing  = pulsing.has(evt.id)
           const labelY = above ? ABOVE_Y : BELOW_Y
           const subY   = above ? ABOVE_Y + SUB_OFF : BELOW_Y + SUB_OFF
@@ -111,8 +125,8 @@ export default function PaulEventTrack({ journey, timelineYear, onCityHover }) {
             <g
               key={evt.id}
               style={{ cursor: 'default' }}
-              onMouseEnter={() => setHoveredId(evt.id)}
-              onMouseLeave={() => setHoveredId(null)}
+              onMouseEnter={() => { setHoveredId(evt.id); onCityHover?.(evtCity) }}
+              onMouseLeave={() => { setHoveredId(null); onCityHover?.(null) }}
             >
               {/* Connector line */}
               <line

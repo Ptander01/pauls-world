@@ -28,7 +28,7 @@ function formatDuration(days) {
   return `${Math.round(days / 365)} yr`
 }
 
-export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
+export default function PaulStopTrack({ journey, timelineYear, onCityHover, hoveredCityId }) {
   const [hoveredIdx, setHoveredIdx] = useState(null)
 
   const { stops, totalWidth } = useMemo(() => {
@@ -71,7 +71,7 @@ export default function PaulStopTrack({ journey, timelineYear, onCityHover }) {
 
         {stops.map(({ wp, city, x, w, i }) => {
           const cx       = x + w / 2
-          const hovered  = hoveredIdx === i
+          const hovered  = hoveredIdx === i || (hoveredCityId && wp.cityId === hoveredCityId)
           const active   = i === currentStopIdx
           const r        = stopRadius(wp.durationDays)
           const major    = (wp.durationDays || 0) > 90

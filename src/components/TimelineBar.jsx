@@ -59,6 +59,7 @@ export default function TimelineBar({
   activeChurchTracks,
   onChurchTrackToggle,
   onCityHover,
+  hoveredCityId,
 }) {
   const svgRef          = useRef(null)
   const mainGRef        = useRef(null)
@@ -568,6 +569,7 @@ export default function TimelineBar({
             onChurchTrackToggle={onChurchTrackToggle ?? (() => {})}
             timelineYear={timelineYear}
             onCityHover={onCityHover}
+            hoveredCityId={hoveredCityId}
             selectedBookId={selectedBookId}
             onBookSelect={onBookClick}
           />

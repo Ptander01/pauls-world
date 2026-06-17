@@ -254,6 +254,7 @@ export default function App() {
         activeChurchTracks={activeChurchTracks}
         onChurchTrackToggle={handleChurchTrackToggle}
         onCityHover={setHoveredCityId}
+        hoveredCityId={hoveredCityId}
       />
       <PlayControls
         isPlaying={isPlaying}

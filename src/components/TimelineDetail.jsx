@@ -100,6 +100,7 @@ export default function TimelineDetail({
   onChurchTrackToggle,
   timelineYear,
   onCityHover,
+  hoveredCityId,
   selectedBookId,
   onBookSelect,
 }) {
@@ -171,8 +172,8 @@ export default function TimelineDetail({
           },
         ]} />
         <div className="tld-track-area">
-          <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} />
-          <PaulEventTrack journey={journey} timelineYear={timelineYear} />
+          <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} hoveredCityId={hoveredCityId} />
+          <PaulEventTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} hoveredCityId={hoveredCityId} />
         </div>
       </div>
 
