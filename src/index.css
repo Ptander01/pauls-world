@@ -80,8 +80,33 @@ body {
   height: 180px;
   background: var(--surface);
   border-top: 2px solid var(--border-lt);
-  transition: height 0.3s ease;
+  transition: height 0.2s ease;
   overflow: hidden;
+  position: relative;
+}
+
+.tl-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tl-resize-handle::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(122, 138, 176, 0.25);
+  transition: background 0.15s;
+}
+.tl-resize-handle:hover::after {
+  background: rgba(201, 168, 76, 0.5);
 }
 
 .timeline-bar--detail {
@@ -218,8 +243,29 @@ body {
   cursor: help;
   opacity: 0.75;
   transition: opacity 0.15s;
+  position: relative;
 }
 .tld-lmark:hover { opacity: 1; }
+.tld-lmark::after {
+  content: attr(data-tip);
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: rgba(13, 17, 32, 0.96);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  color: #ede8dc;
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 100;
+}
+.tld-lmark:hover::after { display: block; }
 
 /* Scrollable track area (right of label col) */
 .tld-track-area {

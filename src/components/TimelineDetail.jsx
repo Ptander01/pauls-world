@@ -52,12 +52,12 @@ function JourneyStats({ journey }) {
   )
 }
 
-// Small SVG legend marker with a native tooltip
+// Small SVG legend marker with a CSS tooltip
 function LMark({ shape, color, size = 4, label }) {
   const w = 14, h = 14, cx = 7, cy = 7
   return (
-    <span className="tld-lmark" title={label}>
-      <svg width={w} height={h} style={{ overflow: 'visible', display: 'block' }}>
+    <span className="tld-lmark" data-tip={label}>
+      <svg width={w} height={h} style={{ overflow: 'visible', display: 'block', pointerEvents: 'none' }}>
         {shape === 'circle' && (
           <circle cx={cx} cy={cy} r={size}
             fill={color} fillOpacity={0.45}

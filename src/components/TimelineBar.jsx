@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import * as d3 from 'd3'
 import journeyData from '../data/pauline-journeys-data.json'
 import TimelineDetail from './TimelineDetail'
@@ -314,10 +314,10 @@ export default function TimelineBar({
       { label: 'BOOKS',    cy: (SEP_Y + TH) / 2      },
     ].forEach(({ label, cy }) =>
       g.append('text')
-        .attr('transform', `translate(14,${cy}) rotate(-90)`)
+        .attr('x', 14).attr('y', cy + 3)
         .attr('text-anchor', 'middle')
-        .attr('font-family', 'Cinzel, serif').attr('font-size', 9)
-        .attr('letter-spacing', 2).attr('fill', '#7a8ab0')
+        .attr('font-family', 'Cinzel, serif').attr('font-size', 7)
+        .attr('letter-spacing', 1).attr('fill', '#7a8ab0')
         .attr('pointer-events', 'none')
         .text(label)
     )
@@ -482,11 +482,36 @@ export default function TimelineBar({
     onDetailJourneyChange(detailJourneyId === id ? null : id)
   }
 
+  const [tlHeight, setTlHeight] = useState(null)
+  const dragRef = useRef(null)
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = e.currentTarget.closest('.timeline-bar').getBoundingClientRect().height
+    dragRef.current = { startY, startH }
+
+    function onMove(ev) {
+      if (!dragRef.current) return
+      const delta = dragRef.current.startY - ev.clientY
+      setTlHeight(Math.max(120, Math.min(600, dragRef.current.startH + delta)))
+    }
+    function onUp() {
+      dragRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
   return (
     <div
       className={`timeline-bar${detailJourneyId ? ' timeline-bar--detail' : ''}`}
+      style={tlHeight ? { height: tlHeight } : undefined}
       onClick={handleBarClick}
     >
+      <div className="tl-resize-handle" onMouseDown={handleResizeStart} />
       {/* Overview SVG — always in DOM so refs/effects stay live; hidden in detail mode */}
       <svg
         ref={svgRef}

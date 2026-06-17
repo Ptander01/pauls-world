@@ -11,11 +11,11 @@ const cityById = Object.fromEntries(
 )
 
 function stopRadius(durationDays) {
-  if (!durationDays || durationDays < 7)  return 4
-  if (durationDays < 30)   return 5.5
-  if (durationDays < 90)   return 7
-  if (durationDays < 365)  return 9
-  return 11
+  if (!durationDays || durationDays < 7)  return 3.5
+  if (durationDays < 30)   return 5
+  if (durationDays < 90)   return 7.5
+  if (durationDays < 365)  return 11
+  return 17
 }
 
 function formatDuration(days) {
