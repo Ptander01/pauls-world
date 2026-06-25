@@ -26,6 +26,164 @@ const YEAR_TICKS = [44, 46, 49, 52, 57, 60, 62, 67]
 const jColor = {}
 journeyData.journeys.forEach(j => { jColor[j.id] = j.color })
 
+// Maps a book to its primary recipient city/church
+const BOOK_CHURCH = {
+  'galatians':        'antioch-pisidia',
+  '1-thessalonians':  'thessalonica',
+  '2-thessalonians':  'thessalonica',
+  '1-corinthians':    'corinth',
+  '2-corinthians':    'corinth',
+  'romans':           'rome',
+  'philippians':      'philippi',
+  'colossians':       'colossae',
+  'ephesians':        'ephesus',
+  'philemon':         'colossae',
+  '1-timothy':        'ephesus',
+  'titus':            'crete',
+  '2-timothy':        'ephesus',
+}
+
+const cityById = Object.fromEntries(journeyData.cities.map(c => [c.id, c]))
+
+function stopR(days) {
+  if (!days || days < 7)  return 4
+  if (days < 30)  return 5.5
+  if (days < 90)  return 7
+  if (days < 365) return 9
+  return 11
+}
+
+const EVENT_COLOR = {
+  founding:          '#c9a84c',
+  'letter-received': '#4A7C6F',
+  support:           '#c9a84c',
+  leadership:        '#7B6FA0',
+}
+
+function CityStoryRow({ selectedBook, onJourneyDrill }) {
+  const [hovered, setHovered] = useState(null)
+  const churchId = BOOK_CHURCH[selectedBook?.id]
+  if (!churchId) return null
+
+  const city = cityById[churchId]
+  const cityName = city?.name ?? churchId
+
+  // All waypoint visits to this city across all journeys
+  const visits = []
+  journeyData.journeys.forEach(j => {
+    j.waypoints.forEach(wp => {
+      if (wp.cityId === churchId) {
+        visits.push({ key: `${j.id}-${wp.year}`, journeyId: j.id, year: wp.year, durationDays: wp.durationDays, color: j.color, shortName: j.shortName })
+      }
+    })
+  })
+
+  // Church events for this church
+  const churchEvts = journeyData.churchEvents.filter(e => e.churchId === churchId)
+
+  // Book letter marker
+  const bookMid = (selectedBook.dateRange[0] + selectedBook.dateRange[1]) / 2
+
+  // Thread line spans all touchpoints
+  const allYears = [...visits.map(v => v.year), ...churchEvts.map(e => e.year), selectedBook.dateRange[0], selectedBook.dateRange[1]]
+  const threadX1 = xScale(Math.min(...allYears))
+  const threadX2 = xScale(Math.max(...allYears))
+
+  const SVG_H  = 64
+  const TRACK_Y = 34
+  const ABOVE_Y = 18
+  const BELOW_Y = 52
+
+  return (
+    <svg
+      className="tl-story-row"
+      viewBox={`0 0 ${TW} ${SVG_H}`}
+      preserveAspectRatio="none"
+      style={{ width: '100%', height: '100%', display: 'block' }}
+    >
+      {/* Section label */}
+      <text x={40} y={TRACK_Y + 4} textAnchor="middle"
+        fontFamily="Cinzel, serif" fontSize={7} letterSpacing={1.5} fill="#7a8ab0"
+      >{cityName.toUpperCase()}</text>
+
+      {/* Thread line */}
+      <line x1={threadX1} y1={TRACK_Y} x2={threadX2} y2={TRACK_Y}
+        stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.18} strokeDasharray="4 4" />
+
+      {/* Journey visit markers */}
+      {visits.map((v, i) => {
+        const x  = xScale(v.year)
+        const r  = stopR(v.durationDays)
+        const isH = hovered === v.key
+        const above = i % 2 === 0
+        return (
+          <g key={v.key} style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(v.key)}
+            onMouseLeave={() => setHovered(null)}
+            onClick={() => onJourneyDrill(v.journeyId)}
+          >
+            <circle cx={x} cy={TRACK_Y} r={isH ? r + 2 : r}
+              fill={v.color} fillOpacity={isH ? 0.55 : 0.3}
+              stroke={v.color} strokeWidth={1.2} strokeOpacity={isH ? 1 : 0.7}
+            />
+            <text x={x} y={above ? ABOVE_Y : BELOW_Y}
+              textAnchor="middle" fontFamily="Cinzel, serif" fontSize={6.5} letterSpacing={0.5}
+              fill={v.color} fillOpacity={isH ? 1 : 0.65}
+              style={{ pointerEvents: 'none' }}
+            >{isH ? v.shortName : `AD ${Math.round(v.year)}`}</text>
+          </g>
+        )
+      })}
+
+      {/* Church event markers */}
+      {churchEvts.map((ev, i) => {
+        const x    = xScale(ev.year)
+        const col  = EVENT_COLOR[ev.type] ?? '#a09a8e'
+        const isH  = hovered === ev.id
+        const sz   = 6
+        return (
+          <g key={ev.id} style={{ cursor: 'default' }}
+            onMouseEnter={() => setHovered(ev.id)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <polygon
+              points={`${x},${TRACK_Y-sz} ${x+sz},${TRACK_Y} ${x},${TRACK_Y+sz} ${x-sz},${TRACK_Y}`}
+              fill={col} fillOpacity={isH ? 0.5 : 0.25}
+              stroke={col} strokeWidth={1} strokeOpacity={isH ? 1 : 0.7}
+            />
+            {isH && (
+              <text x={x} y={i % 2 === 0 ? ABOVE_Y : BELOW_Y}
+                textAnchor="middle" fontFamily="Cormorant Garamond, serif"
+                fontStyle="italic" fontSize={8}
+                fill={col} style={{ pointerEvents: 'none' }}
+              >{ev.label}</text>
+            )}
+          </g>
+        )
+      })}
+
+      {/* Letter / book marker — gold diamond, always labelled */}
+      {(() => {
+        const x  = xScale(bookMid)
+        const sz = 9
+        return (
+          <g>
+            <polygon
+              points={`${x},${TRACK_Y-sz} ${x+sz},${TRACK_Y} ${x},${TRACK_Y+sz} ${x-sz},${TRACK_Y}`}
+              fill="#c9a84c" fillOpacity={0.55}
+              stroke="#c9a84c" strokeWidth={1.5} strokeOpacity={0.9}
+            />
+            <text x={x} y={ABOVE_Y - 2}
+              textAnchor="middle" fontFamily="Cinzel, serif" fontSize={8} letterSpacing={0.5}
+              fill="#e9c86c" style={{ pointerEvents: 'none' }}
+            >{selectedBook.abbrev}</text>
+          </g>
+        )
+      })()}
+    </svg>
+  )
+}
+
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
 function getSvgYear(clientX, svgEl) {
@@ -472,9 +630,9 @@ export default function TimelineBar({
 
   }, [activeJourneys, selectedBookId, highlightRange, onBookClick, isPlaying, detailJourneyId])
 
-  const detailJourney = detailJourneyId
-    ? journeyData.journeys.find(j => j.id === detailJourneyId)
-    : null
+  const detailJourney  = detailJourneyId ? journeyData.journeys.find(j => j.id === detailJourneyId) : null
+  const selectedBook   = selectedBookId  ? journeyData.books.find(b => b.id === selectedBookId)    : null
+  const showStoryRow   = !!selectedBook && !detailJourneyId && !!BOOK_CHURCH[selectedBookId]
 
   function handleBarClick(ev) {
     const hit = ev.target.closest('[data-bar-hit]')
@@ -508,22 +666,36 @@ export default function TimelineBar({
 
   return (
     <div
-      className={`timeline-bar${detailJourneyId ? ' timeline-bar--detail' : ''}`}
+      className={`timeline-bar${detailJourneyId ? ' timeline-bar--detail' : ''}${showStoryRow ? ' timeline-bar--story' : ''}`}
       style={tlHeight ? { height: tlHeight } : undefined}
       onClick={handleBarClick}
     >
       <div className="tl-resize-handle" onMouseDown={handleResizeStart} />
-      {/* Overview SVG — always in DOM so refs/effects stay live; hidden in detail mode */}
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${TW} ${TH}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: '100%', display: detailJourneyId ? 'none' : 'block', cursor: 'crosshair' }}
-      >
-        <defs ref={defsRef} />
-        <g ref={mainGRef} />
-        <g ref={scrubGRef} />
-      </svg>
+
+      {/* Overview area — flex column so story row shares vertical space */}
+      <div className="tl-overview-area" style={{ display: detailJourneyId ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Main overview SVG */}
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${TW} ${TH}`}
+          preserveAspectRatio="none"
+          style={{ width: '100%', flex: 1, cursor: 'crosshair', minHeight: 0 }}
+        >
+          <defs ref={defsRef} />
+          <g ref={mainGRef} />
+          <g ref={scrubGRef} />
+        </svg>
+
+        {/* City story row — shown when a book is selected */}
+        {showStoryRow && (
+          <div className="tl-story-wrap">
+            <CityStoryRow
+              selectedBook={selectedBook}
+              onJourneyDrill={onDetailJourneyChange}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Detail view */}
       {detailJourneyId && (
