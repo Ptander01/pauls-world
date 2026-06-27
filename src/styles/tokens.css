@@ -27,3 +27,18 @@
   --city-major:     #c9a84c;
   --city-minor:     #2a3d5a;
 }
+
+[data-theme="light"] {
+  --bg:           #f5f0e8;
+  --surface:      #ede7d9;
+  --surface-2:    #e4ddd0;
+  --surface-3:    #d9d1c2;
+  --accent:       #a07828;
+  --accent-dim:   #7a5c1e;
+  --accent-lt:    #c9980e;
+  --cream:        #2a2420;
+  --cream-dim:    #5a5048;
+  --muted:        #8a8070;
+  --border:       #cec5b2;
+  --border-lt:    #b8ae9e;
+}

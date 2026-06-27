@@ -192,6 +192,7 @@ export default function MapView({
   showProvinces,
   isPlaying,
   detailJourneyId,
+  onMapReady,
 }) {
   const svgRef      = useRef(null)
   const mapGRef     = useRef(null)
@@ -256,6 +257,18 @@ export default function MapView({
     zoomRef.current = zoom
     svg.call(zoom)
     svg.on('dblclick.zoom', null)
+
+    // Expose panToCity so App can call it from search
+    onMapReady?.((cityId) => {
+      const city = cityById[cityId]
+      if (!city || !zoomRef.current || !svgRef.current) return
+      const [px, py] = projection(city.coords)
+      const svgEl = svgRef.current
+      const { width, height } = svgEl.getBoundingClientRect()
+      const scale = Math.max(kRef.current, 3)
+      const t = d3.zoomIdentity.translate(width / 2 - scale * px, height / 2 - scale * py).scale(scale)
+      d3.select(svgEl).transition('search-pan').duration(700).call(zoomRef.current.transform, t)
+    })
 
     return () => svg.on('.zoom', null)
   }, [])

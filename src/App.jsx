@@ -4,6 +4,7 @@ import FilterPanel from './components/FilterPanel'
 import TimelineBar from './components/TimelineBar'
 import BookDetailPanel from './components/BookDetailPanel'
 import PlayControls from './components/PlayControls'
+import SearchBar from './components/SearchBar'
 import journeyData from './data/pauline-journeys-data.json'
 import './index.css'
 
@@ -31,6 +32,13 @@ export default function App() {
   const [playSpeed, setPlaySpeed]           = useState(1)
   const [detailJourneyId, setDetailJourneyId]       = useState(null)
   const [activeChurchTracks, setActiveChurchTracks] = useState(new Set())
+  const [theme, setTheme] = useState(() => localStorage.getItem('pw-theme') || 'dark')
+  const panToCityRef = useRef(null)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('pw-theme', theme)
+  }, [theme])
 
   const playFrameRef           = useRef(null)
   const playStartTimeRef       = useRef(null)
@@ -209,6 +217,23 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>Paul's World</h1>
+        <SearchBar
+          onCitySelect={cityId => {
+            setHoveredCityId(cityId)
+            panToCityRef.current?.(cityId)
+          }}
+          onBookSelect={bookId => {
+            setSelectedBookId(bookId)
+            setViewMode('books')
+          }}
+        />
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
       </header>
       <div className="app-body">
         <div className="map-container">
@@ -227,6 +252,7 @@ export default function App() {
             selectedBookId={selectedBookId}
             timelineYear={timelineYear}
             hoveredCityId={hoveredCityId}
+            onMapReady={panFn => { panToCityRef.current = panFn }}
             onCityHover={setHoveredCityId}
             onCityClick={() => {}}
             provincesGeo={provincesGeo}
