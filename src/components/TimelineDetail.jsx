@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import PaulStopTrack from './PaulStopTrack'
 import PaulEventTrack from './PaulEventTrack'
 import BookTrack from './BookTrack'
@@ -52,29 +52,26 @@ function JourneyStats({ journey }) {
   )
 }
 
-// Small SVG legend marker with a CSS tooltip
-function LMark({ shape, color, size = 4, label }) {
-  const w = 14, h = 14, cx = 7, cy = 7
+function LMarkSvg({ shape, color, size = 4 }) {
+  const cx = 7, cy = 7
   return (
-    <span className="tld-lmark" data-tip={label}>
-      <svg width={w} height={h} style={{ overflow: 'visible', display: 'block', pointerEvents: 'none' }}>
-        {shape === 'circle' && (
-          <circle cx={cx} cy={cy} r={size}
-            fill={color} fillOpacity={0.45}
-            stroke={color} strokeWidth={1} strokeOpacity={0.85} />
-        )}
-        {shape === 'diamond' && (
-          <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`}
-            fill={color} fillOpacity={0.35}
-            stroke={color} strokeWidth={1} strokeOpacity={0.85} />
-        )}
-        {shape === 'bar' && (
-          <rect x={1} y={cy - 3} width={12} height={6} rx={2}
-            fill={color} fillOpacity={0.3}
-            stroke={color} strokeWidth={1} strokeOpacity={0.65} />
-        )}
-      </svg>
-    </span>
+    <svg width={14} height={14} style={{ overflow: 'visible', display: 'block', flexShrink: 0 }}>
+      {shape === 'circle' && (
+        <circle cx={cx} cy={cy} r={size}
+          fill={color} fillOpacity={0.45}
+          stroke={color} strokeWidth={1} strokeOpacity={0.85} />
+      )}
+      {shape === 'diamond' && (
+        <polygon points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`}
+          fill={color} fillOpacity={0.35}
+          stroke={color} strokeWidth={1} strokeOpacity={0.85} />
+      )}
+      {shape === 'bar' && (
+        <rect x={1} y={cy - 3} width={12} height={6} rx={2}
+          fill={color} fillOpacity={0.3}
+          stroke={color} strokeWidth={1} strokeOpacity={0.65} />
+      )}
+    </svg>
   )
 }
 
@@ -82,13 +79,41 @@ function LabelCol({ sections }) {
   return (
     <div className="tld-label-col">
       {sections.map((sec, i) => (
-        <div key={i} className="tld-label-section" style={sec.flex ? { flex: sec.flex } : { height: sec.height }}>
+        <div
+          key={i}
+          className="tld-label-section"
+          style={sec.flex ? { flex: sec.flex } : { height: sec.height }}
+        >
           <span className="tld-label-name">{sec.name}</span>
-          <div className="tld-legend-row">
-            {sec.items.map((item, j) => <LMark key={j} {...item} />)}
+          {/* legend tooltip shown on hover over the whole section */}
+          <div className="tld-legend-icons">
+            {sec.items.map((item, j) => <LMarkSvg key={j} {...item} />)}
+          </div>
+          <div className="tld-legend-popup">
+            {sec.items.map((item, j) => (
+              <div key={j} className="tld-legend-entry">
+                <LMarkSvg {...item} />
+                <span>{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function StopNoteCard({ stop, city, onClose }) {
+  if (!stop) return null
+  return (
+    <div className="snc">
+      <div className="snc-header">
+        <span className="snc-city">{city?.name ?? stop.cityId}</span>
+        {city?.modernName && <span className="snc-modern">{city.modernName}</span>}
+        <button className="snc-close" onClick={onClose}>✕</button>
+      </div>
+      {stop.note && <p className="snc-note">{stop.note}</p>}
+      {stop.ref && <span className="snc-ref">{stop.ref}</span>}
     </div>
   )
 }
@@ -141,6 +166,8 @@ export default function TimelineDetail({
     return () => containers.forEach(el => el.removeEventListener('scroll', onScroll))
   }, [activeChurchTracks])
 
+  const [selectedStop, setSelectedStop] = useState(null)
+
   if (!journey) return null
 
   const jColor = journey.color
@@ -172,7 +199,7 @@ export default function TimelineDetail({
           },
         ]} />
         <div className="tld-track-area">
-          <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} hoveredCityId={hoveredCityId} />
+          <PaulStopTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} hoveredCityId={hoveredCityId} onStopClick={setSelectedStop} />
           <PaulEventTrack journey={journey} timelineYear={timelineYear} onCityHover={onCityHover} hoveredCityId={hoveredCityId} />
         </div>
       </div>
@@ -240,6 +267,14 @@ export default function TimelineDetail({
             </div>
           </div>
         </div>
+      )}
+
+      {selectedStop && (
+        <StopNoteCard
+          stop={selectedStop}
+          city={cityById[selectedStop.cityId]}
+          onClose={() => setSelectedStop(null)}
+        />
       )}
     </div>
   )

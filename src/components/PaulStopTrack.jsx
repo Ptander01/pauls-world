@@ -28,7 +28,7 @@ function formatDuration(days) {
   return `${Math.round(days / 365)} yr`
 }
 
-export default function PaulStopTrack({ journey, timelineYear, onCityHover, hoveredCityId }) {
+export default function PaulStopTrack({ journey, timelineYear, onCityHover, hoveredCityId, onStopClick }) {
   const [hoveredIdx, setHoveredIdx] = useState(null)
 
   const { stops, totalWidth } = useMemo(() => {
@@ -88,7 +88,8 @@ export default function PaulStopTrack({ journey, timelineYear, onCityHover, hove
               key={`${wp.cityId}-${i}`}
               onMouseEnter={() => { setHoveredIdx(i); onCityHover?.(wp.cityId) }}
               onMouseLeave={() => { setHoveredIdx(null); onCityHover?.(null) }}
-              style={{ cursor: 'default' }}
+              onClick={() => onStopClick?.(wp)}
+              style={{ cursor: wp.note ? 'pointer' : 'default' }}
             >
               {/* Connector line to label */}
               <line
@@ -97,6 +98,13 @@ export default function PaulStopTrack({ journey, timelineYear, onCityHover, hove
                 stroke="#c9a84c" strokeWidth={0.8}
                 strokeOpacity={(hovered || active) ? 0.5 : 0.2}
               />
+
+              {/* Click ring hint for stops with notes */}
+              {hovered && wp.note && (
+                <circle cx={cx} cy={TRACK_Y} r={r + 4}
+                  fill="none" stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.5}
+                  strokeDasharray="2 2" />
+              )}
 
               {/* City dot */}
               <circle

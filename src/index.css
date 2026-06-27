@@ -343,8 +343,8 @@ body {
   flex-direction: column;
   border-right: 1px solid rgba(46, 56, 88, 0.5);
   background: rgba(13, 17, 32, 0.6);
-  z-index: 1;
-  overflow: hidden;
+  z-index: 10;
+  overflow: visible;
 }
 
 .tld-label-section {
@@ -367,41 +367,49 @@ body {
   writing-mode: horizontal-tb;
 }
 
-.tld-legend-row {
+.tld-legend-icons {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 3px;
+  opacity: 0.65;
+  transition: opacity 0.15s;
 }
 
-.tld-lmark {
-  display: block;
-  cursor: help;
-  opacity: 0.75;
-  transition: opacity 0.15s;
+/* Section-level legend popup */
+.tld-label-section {
   position: relative;
 }
-.tld-lmark:hover { opacity: 1; }
-.tld-lmark::after {
-  content: attr(data-tip);
+.tld-legend-popup {
   display: none;
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%);
-  background: rgba(13, 17, 32, 0.96);
-  border: 1px solid rgba(201, 168, 76, 0.3);
-  color: #ede8dc;
-  font-family: var(--font-display);
-  font-size: 8px;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-  padding: 4px 8px;
-  border-radius: 3px;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(13, 17, 32, 0.97);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 4px;
+  padding: 8px 10px;
+  z-index: 200;
   pointer-events: none;
-  z-index: 100;
+  min-width: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
-.tld-lmark:hover::after { display: block; }
+.tld-label-section:hover .tld-legend-icons { opacity: 1; }
+.tld-label-section:hover .tld-legend-popup { display: flex; flex-direction: column; gap: 7px; }
+.tld-legend-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.tld-legend-entry span {
+  font-family: var(--font-display);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: #ede8dc;
+  opacity: 0.85;
+}
 
 /* Scrollable track area (right of label col) */
 .tld-track-area {
@@ -439,7 +447,7 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ── Church track toggle pills ───────────────────────── */
@@ -1223,6 +1231,68 @@ body {
   animation: petMarkerPulse 600ms ease-out forwards;
   transform-box: fill-box;
   transform-origin: center;
+}
+
+/* ── Stop Note Card ─────────────────────────────────────────────────────── */
+.snc {
+  flex-shrink: 0;
+  margin: 0 8px 6px;
+  padding: 10px 14px;
+  background: rgba(19, 24, 42, 0.97);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  animation: sncSlideIn 0.18s ease;
+}
+@keyframes sncSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.snc-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.snc-city {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #c9a84c;
+}
+.snc-modern {
+  font-family: var(--font-serif);
+  font-size: 10px;
+  font-style: italic;
+  color: #5c6078;
+}
+.snc-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #5c6078;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.snc-close:hover { color: #a09a8e; }
+.snc-note {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #ede8dc;
+  opacity: 0.85;
+  margin: 0;
+}
+.snc-ref {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #c9a84c;
+  opacity: 0.7;
 }
 
 /* ── Journey Stats Bar ──────────────────────────────────────────────────── */
