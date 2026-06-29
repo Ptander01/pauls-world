@@ -150,7 +150,8 @@ function getPlayZoom(location) {
 }
 
 // Scale bar showing a fixed 500 km reference in the bottom-right corner
-function ScaleBar({ projection }) {
+function ScaleBar({ projection, theme }) {
+  const barColor = theme === 'light' ? '#4a5a6a' : '#7a8ab0'
   const TARGET_KM = 500
   const R = 6371
   // Compute pixel width for TARGET_KM at the map's center latitude (37°N)
@@ -170,11 +171,11 @@ function ScaleBar({ projection }) {
       preserveAspectRatio="xMidYMid meet"
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
     >
-      <line x1={bx} y1={by} x2={bx + barW} y2={by} stroke="#7a8ab0" strokeWidth={1.5} />
-      <line x1={bx} y1={by - 5} x2={bx} y2={by + 5} stroke="#7a8ab0" strokeWidth={1.5} />
-      <line x1={bx + barW} y1={by - 5} x2={bx + barW} y2={by + 5} stroke="#7a8ab0" strokeWidth={1.5} />
+      <line x1={bx} y1={by} x2={bx + barW} y2={by} stroke={barColor} strokeWidth={1.5} />
+      <line x1={bx} y1={by - 5} x2={bx} y2={by + 5} stroke={barColor} strokeWidth={1.5} />
+      <line x1={bx + barW} y1={by - 5} x2={bx + barW} y2={by + 5} stroke={barColor} strokeWidth={1.5} />
       <text x={bx + barW / 2} y={by - 8} textAnchor="middle"
-        fontFamily="Cinzel, serif" fontSize={9} letterSpacing={2} fill="#7a8ab0">
+        fontFamily="Cinzel, serif" fontSize={9} letterSpacing={2} fill={barColor}>
         {TARGET_KM} KM
       </text>
     </svg>
@@ -193,7 +194,9 @@ export default function MapView({
   isPlaying,
   detailJourneyId,
   onMapReady,
+  theme,
 }) {
+  const isLight = theme === 'light'
   const svgRef      = useRef(null)
   const mapGRef     = useRef(null)
   const containerRef = useRef(null)
@@ -284,15 +287,15 @@ export default function MapView({
       .datum(d3.geoGraticule().step([5, 5])())
       .attr('d', pathGen)
       .attr('fill', 'none')
-      .attr('stroke', '#0c1828')
+      .attr('stroke', isLight ? '#8a9eb0' : '#0c1828')
       .attr('stroke-width', 0.5)
-      .attr('opacity', 0.5)
+      .attr('opacity', 0.4)
 
     // ── Land
     mapG.append('path')
       .datum(land)
       .attr('d', pathGen)
-      .attr('fill', '#111d2e')
+      .attr('fill', isLight ? '#cbbfa0' : '#111d2e')
       .attr('stroke', 'none')
 
     // ── Country borders
@@ -300,7 +303,7 @@ export default function MapView({
       .datum(borders)
       .attr('d', pathGen)
       .attr('fill', 'none')
-      .attr('stroke', '#1e2e48')
+      .attr('stroke', isLight ? '#9aacb8' : '#1e2e48')
       .attr('stroke-width', 0.7)
 
     // ── Province fills, borders, labels
@@ -310,8 +313,8 @@ export default function MapView({
         .data(provincesGeo.features)
         .join('path')
         .attr('d', pathGen)
-        .attr('fill', d => visitedIds.has(normalizeProvinceName(d.properties.name)) ? '#c9a84c' : '#a09a8e')
-        .attr('fill-opacity', d => visitedIds.has(normalizeProvinceName(d.properties.name)) ? 0.07 : 0.04)
+        .attr('fill', d => visitedIds.has(normalizeProvinceName(d.properties.name)) ? '#c9a84c' : (isLight ? '#7a6a50' : '#a09a8e'))
+        .attr('fill-opacity', d => visitedIds.has(normalizeProvinceName(d.properties.name)) ? (isLight ? 0.14 : 0.07) : (isLight ? 0.06 : 0.04))
         .attr('stroke', 'none')
 
       mapG.append('g')
@@ -338,8 +341,8 @@ export default function MapView({
           .attr('dominant-baseline', 'middle')
           .attr('font-family', 'Cinzel, serif')
           .attr('font-size', 9 / kRef.current)
-          .attr('fill', '#c9a84c')
-          .attr('fill-opacity', 0.3)
+          .attr('fill', isLight ? '#6a5830' : '#c9a84c')
+          .attr('fill-opacity', isLight ? 0.45 : 0.3)
           .text(feature.properties.name)
       })
     }
@@ -667,7 +670,7 @@ export default function MapView({
 
     applyZoomStyling(mapGRef.current, kRef.current)
 
-  }, [projection, pathGen, land, borders, provincesGeo, showProvinces, activeJourneys, selectedBookId, cityById, visitedIds, lineGen])
+  }, [projection, pathGen, land, borders, provincesGeo, showProvinces, activeJourneys, selectedBookId, cityById, visitedIds, lineGen, theme, isLight])
 
   // ── Progressive reveal — synchronized to timelineYear ─────────────────
   useEffect(() => {
@@ -865,12 +868,12 @@ export default function MapView({
             </feMerge>
           </filter>
         </defs>
-        <rect width={W} height={H} fill="#060d1a" />
+        <rect width={W} height={H} fill={isLight ? '#b8c8d4' : '#060d1a'} />
         <g ref={mapGRef} />
       </svg>
 
       {/* Scale bar — fixed 500 km reference, bottom-right */}
-      <ScaleBar projection={projection} />
+      <ScaleBar projection={projection} theme={theme} />
 
       {segmentTip && !tooltipCity && (
         <div className="city-tooltip" style={{

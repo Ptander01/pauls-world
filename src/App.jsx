@@ -257,6 +257,7 @@ export default function App() {
             showProvinces={showProvinces}
             isPlaying={isPlaying}
             detailJourneyId={detailJourneyId}
+            theme={theme}
           />
           <BookDetailPanel
             book={selectedBook}
