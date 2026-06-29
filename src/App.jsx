@@ -5,6 +5,7 @@ import TimelineBar from './components/TimelineBar'
 import BookDetailPanel from './components/BookDetailPanel'
 import PlayControls from './components/PlayControls'
 import SearchBar from './components/SearchBar'
+import ThemeToggle from './components/ThemeToggle'
 import journeyData from './data/pauline-journeys-data.json'
 import './index.css'
 
@@ -227,13 +228,10 @@ export default function App() {
             setViewMode('books')
           }}
         />
-        <button
-          className="theme-toggle"
-          onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? '☀' : '☾'}
-        </button>
+        <ThemeToggle
+          theme={theme}
+          onToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        />
       </header>
       <div className="app-body">
         <div className="map-container">
