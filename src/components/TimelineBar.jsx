@@ -595,9 +595,9 @@ export default function TimelineBar({
         .attr('class', 'book-diamond')
         .attr('data-book', book.id)
         .attr('points', `${cx},${cy-DR} ${cx+DR},${cy} ${cx},${cy+DR} ${cx-DR},${cy}`)
-        .attr('fill', sel ? col : '#13182a')
-        .attr('fill-opacity', sel ? 0.9 : 0.55)
-        .attr('stroke', col).attr('stroke-width', 1.2).attr('stroke-opacity', sel ? 0.15 : 0.8)
+        .attr('fill', sel ? '#0c0f18' : col)
+        .attr('fill-opacity', sel ? 0.95 : 0.18)
+        .attr('stroke', col).attr('stroke-width', sel ? 1.8 : 1.2).attr('stroke-opacity', 0.85)
         .style('cursor', 'pointer')
         .on('click', ev => { ev.stopPropagation(); onBookClick(book.id) })
         .on('mouseenter', () => {
