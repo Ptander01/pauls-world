@@ -16,6 +16,42 @@
   --font-display: 'Cinzel', serif;
   --font-serif:   'Cormorant Garamond', Georgia, serif;
 
+  /* ── Glass / lip token system ── */
+  --glass-bg:      rgba(13,16,32,0.55);
+  --glass-blur:    blur(20px);
+  --glass-shine:   rgba(255,255,255,0.06);
+  --glass-border:  rgba(255,255,255,0.07);
+
+  /* Pill backgrounds — directional gradient gives material depth */
+  --pill-bg:        linear-gradient(150deg, #141828 0%, #0f1220 50%, #0c0e1a 100%);
+  --pill-bg-active: linear-gradient(150deg, #0a0c15 0%, #111422 50%, #151928 100%);
+
+  /* 3-D lip shadows — outer raised, inner pressed, hover lift, gold focus */
+  --lip-out:
+    -1px -1px 3px rgba(255,255,255,0.04),
+     1px  1px 6px rgba(0,0,0,0.65),
+    inset 0  1px 0 rgba(255,255,255,0.07),
+    inset 0 -1px 0 rgba(0,0,0,0.40),
+    inset 0  0   0 1px rgba(255,255,255,0.025);
+  --lip-in:
+    inset 0  3px 8px rgba(0,0,0,0.65),
+    inset 0  1px 0 rgba(0,0,0,0.35),
+    inset 0 -1px 0 rgba(255,255,255,0.03),
+     0 1px 3px rgba(0,0,0,0.30);
+  --lip-hover:
+    -1px -1px 5px rgba(255,255,255,0.06),
+     1px  1px 9px rgba(0,0,0,0.70),
+    inset 0  1px 0 rgba(255,255,255,0.09),
+    inset 0 -1px 0 rgba(0,0,0,0.45),
+    inset 0  0   0 1px rgba(255,255,255,0.04),
+    0 0 12px rgba(201,168,76,0.08);
+  --lip-in-gold:
+    inset 0  3px 8px rgba(0,0,0,0.60),
+    inset 0  1px 0 rgba(0,0,0,0.30),
+    inset 0 -1px 0 rgba(201,168,76,0.05),
+     0 0 12px rgba(201,168,76,0.15),
+     0 0  4px rgba(201,168,76,0.08);
+
   --j1:    #c9a84c;
   --j2:    #4A7C6F;
   --j3:    #7B6FA0;
