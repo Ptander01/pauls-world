@@ -4,16 +4,30 @@ import journeyData from '../data/pauline-journeys-data.json'
 import TimelineDetail from './TimelineDetail'
 
 const TW = 1200
-const TH = 180
+const TH = 210
 
-const TRACK_Y  = 8
-const TRACK_H  = 14
+// ── 4-state books layout (see src/data/TIMELINE-BOOKS-4STATE-PROTOTYPE.md) ──
+const PL = 80            // left edge of the year scale
+const PR = 60            // right margin (TW − 1140)
+const BY = 24            // journey bar band top
+const BH = 16            // journey bar band height
+const FAY = 8            // state-0/1 flag dot row (even books, above bars)
+const FBY = 48           // state-0/1 flag dot row (odd books, below bars)
+const AXIS_Y = 62
+const SEP = 78           // timeline / books band separator
+const ROUTE_Y = SEP + 4  // horizontal routing level for displaced chip poles
+const FDR = 4            // flag dot radius
+const CR0_S2 = 88,  CR1_S2 = 113, CH_S2 = 20   // state-2 compact chip rows
+const CR0_S3 = 106, CR1_S3 = 165, CH_S3 = 30   // state-3 expanded chip rows
 
-const AXIS_Y   = 46
-
-const D0_CY    = 88
-const D1_CY    = 135
-const DR       = 8
+const VIEWBOXES = [
+  [0, 0, TW, 78],    // state 0 — journey bars only
+  [0, 0, TW, 78],    // state 1 — bars + book flags
+  [0, 0, TW, 210],   // state 2 — both rows, compact chips
+  [0, 75, TW, 123],  // state 3 — books only
+]
+const STATE_HEIGHTS = [96, 96, 236, 148]
+const STATE_LABELS  = ['Journeys', 'Letters Appear', 'Journeys + Letters', 'The Letters']
 
 const xScale = d3.scaleLinear().domain([44, 68]).range([80, 1140])
 
@@ -25,6 +39,110 @@ const YEAR_TICKS = [44, 46, 49, 52, 57, 60, 62, 67]
 
 const jColor = {}
 journeyData.journeys.forEach(j => { jColor[j.id] = j.color })
+
+const BOOKS = journeyData.books.map((b, i) => ({
+  ...b,
+  row: i % 2,
+  dt: (b.dateRange[0] + b.dateRange[1]) / 2,
+}))
+
+// State-3 chip layout — collision-resolved per row (prison epistles cluster at AD 60–62)
+const S3_CHIPS = (() => {
+  const CPX = 6.5, CPAD = 26, GAP = 6
+  const chips = BOOKS.map(b => ({
+    id: b.id,
+    idealCx: xScale(b.dt),
+    cx: xScale(b.dt),
+    w: Math.max(xScale(b.dateRange[1]) - xScale(b.dateRange[0]), b.name.length * CPX + CPAD),
+    row: b.row,
+  }))
+  ;[0, 1].forEach(row => {
+    const rc = chips.filter(c => c.row === row).sort((a, b) => a.idealCx - b.idealCx)
+    // push right to clear left neighbors
+    for (let k = 1; k < rc.length; k++) {
+      const lo = rc[k - 1].cx + rc[k - 1].w / 2 + GAP + rc[k].w / 2
+      if (rc[k].cx < lo) rc[k].cx = lo
+    }
+    // enforce right boundary, then push left to clear right neighbors
+    const last = rc[rc.length - 1]
+    last.cx = Math.min(last.cx, TW - PR - last.w / 2)
+    for (let k = rc.length - 2; k >= 0; k--) {
+      const hi = rc[k + 1].cx - rc[k + 1].w / 2 - GAP - rc[k].w / 2
+      if (rc[k].cx > hi) rc[k].cx = hi
+    }
+    // enforce left boundary, push right again if needed
+    rc[0].cx = Math.max(rc[0].cx, PL + rc[0].w / 2)
+    for (let k = 1; k < rc.length; k++) {
+      const lo = rc[k - 1].cx + rc[k - 1].w / 2 + GAP + rc[k].w / 2
+      if (rc[k].cx < lo) rc[k].cx = lo
+    }
+  })
+  return Object.fromEntries(chips.map(c => [c.id, c]))
+})()
+
+// Chip geometry per state — one rounded rect morphs dot → compact chip → full chip.
+// fo = fill-opacity, so = stroke-opacity, sto = flag-stem opacity.
+function getP(b, s) {
+  const cx = xScale(b.dt)
+  if (s <= 1) {
+    const dy = b.row === 0 ? FAY : FBY
+    return { x: cx - FDR, y: dy - FDR, w: 2 * FDR, h: 2 * FDR, rx: FDR,
+             fo: s ? 0.28 : 0, so: s ? 0.88 : 0, sto: s ? 0.55 : 0 }
+  }
+  if (s === 2) {
+    const rw = Math.max(xScale(b.dateRange[1]) - xScale(b.dateRange[0]), 28)
+    const cy = b.row === 0 ? CR0_S2 : CR1_S2
+    return { x: cx - rw / 2, y: cy, w: rw, h: CH_S2, rx: 4, fo: 0.15, so: 0.55, sto: 0 }
+  }
+  const lay = S3_CHIPS[b.id]
+  const cy  = b.row === 0 ? CR0_S3 : CR1_S3
+  return { x: lay.cx - lay.w / 2, y: cy, w: lay.w, h: CH_S3, rx: 6, fo: 0.15, so: 0.6, sto: 0 }
+}
+
+// L-shaped pole routing — no diagonals; displaced chips route via ROUTE_Y
+function polePath(b) {
+  const lay  = S3_CHIPS[b.id]
+  const topY = b.row === 0 ? CR0_S3 : CR1_S3
+  const ax   = xScale(b.dt), cx = lay.cx
+  if (Math.abs(cx - ax) < 0.5) return `M ${cx} ${topY} V ${SEP}`
+  return `M ${cx} ${topY} V ${ROUTE_Y} H ${ax} V ${SEP}`
+}
+
+function abbrevAttrs(b, s) {
+  if (s === 2) {
+    const cy = b.row === 0 ? CR0_S2 : CR1_S2
+    return { x: xScale(b.dt), y: cy + CH_S2 / 2 + 3, o: 0.9 }
+  }
+  if (s === 3) {
+    const lay = S3_CHIPS[b.id]
+    return { x: lay.cx, y: (b.row === 0 ? CR0_S3 : CR1_S3) + CH_S3 / 2 + 3, o: 0 }
+  }
+  return { x: xScale(b.dt), y: (b.row === 0 ? FAY : FBY) + 2.5, o: 0 }
+}
+
+function nameAttrs(b, s) {
+  if (s === 3) {
+    const lay = S3_CHIPS[b.id]
+    return { x: lay.cx, y: (b.row === 0 ? CR0_S3 : CR1_S3) + 13, o: 0.95 }
+  }
+  if (s === 2) {
+    const cy = b.row === 0 ? CR0_S2 : CR1_S2
+    return { x: xScale(b.dt), y: cy + CH_S2 / 2 + 3.5, o: 0 }
+  }
+  return { x: xScale(b.dt), y: (b.row === 0 ? FAY : FBY) + 3, o: 0 }
+}
+
+function dateAttrs(b, s) {
+  const na = nameAttrs(b, s)
+  if (s === 3) return { x: na.x, y: (b.row === 0 ? CR0_S3 : CR1_S3) + 25, o: 0.7 }
+  return { ...na, o: 0 }
+}
+
+function dateLabel(b) {
+  const [r0, r1] = b.dateRange
+  const s = r0 === r1 ? `AD ${r0}` : `AD ${r0}–${r1}`
+  return b.dateDebated ? `c. ${s}` : s
+}
 
 // Maps a book to its primary recipient city/church
 const BOOK_CHURCH = {
@@ -227,6 +345,16 @@ export default function TimelineBar({
   const timelineYearRef = useRef(timelineYear)
   const revealedBooks   = useRef(new Set())
 
+  // 4-state books disclosure — local to the timeline (0=bars, 1=flags, 2=chips, 3=books only)
+  const [bookState, setBookState] = useState(1)
+  const bookStateRef      = useRef(bookState)
+  const bookStateInit     = useRef(false)
+  const selectedBookIdRef = useRef(selectedBookId)
+
+  useEffect(() => {
+    selectedBookIdRef.current = selectedBookId
+  }, [selectedBookId])
+
   useEffect(() => {
     yearRef.current         = timelineYear
     timelineYearRef.current = timelineYear
@@ -323,11 +451,11 @@ export default function TimelineBar({
 
     const tip = scrubG.append('g').attr('class', 's-tip').attr('pointer-events', 'none')
     tip.append('rect')
-      .attr('x', -54).attr('y', AXIS_Y + 4).attr('width', 108).attr('height', 14).attr('rx', 3)
+      .attr('x', -54).attr('y', AXIS_Y + 2).attr('width', 108).attr('height', 14).attr('rx', 3)
       .attr('fill', '#0c0f18').attr('stroke', '#c9a84c')
       .attr('stroke-width', 0.5).attr('stroke-opacity', 0.55)
     tip.append('text')
-      .attr('y', AXIS_Y + 14).attr('text-anchor', 'middle')
+      .attr('y', AXIS_Y + 12).attr('text-anchor', 'middle')
       .attr('font-family', 'Cinzel, serif').attr('font-size', 8.5)
       .attr('fill', '#c9a84c').attr('fill-opacity', 0.95)
 
@@ -367,6 +495,7 @@ export default function TimelineBar({
     defs.selectAll('*').remove()
 
     const currentYear = timelineYearRef.current
+    const bs = bookStateRef.current
 
     // ── ClipPaths for progressive bar reveal ────────────────────────────
     CAPSULE_BARS.forEach(bar => {
@@ -384,13 +513,17 @@ export default function TimelineBar({
       defs.append('clipPath')
         .attr('id', `pbw-bar-clip-${bar.id}`)
         .append('rect')
-        .attr('x', x1).attr('y', TRACK_Y - 2)
+        .attr('x', x1).attr('y', BY - 2)
         .attr('width', initialW)
-        .attr('height', TRACK_H + 4)
+        .attr('height', BH + 4)
         .attr('data-bar-clip', bar.id)
     })
 
-    // ── Capsule bars ────────────────────────────────────────────────────
+    // ── Capsule bars (grouped so state 3 can ghost them) ────────────────
+    const barsG = g.append('g')
+      .attr('class', 'tl-bars')
+      .attr('opacity', bs === 3 ? 0.07 : 1)
+
     CAPSULE_BARS.forEach(bar => {
       const x1 = xScale(Math.max(44, bar.dr[0])) + 1.5
       const x2 = xScale(Math.min(68, bar.dr[1])) - 1.5
@@ -399,15 +532,15 @@ export default function TimelineBar({
 
       if (bar.dashed) {
         // Background track (always visible at low opacity)
-        g.append('rect')
-          .attr('x', x1).attr('y', TRACK_Y).attr('width', x2 - x1).attr('height', TRACK_H).attr('rx', 5)
+        barsG.append('rect')
+          .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
           .attr('fill', 'none')
           .attr('stroke', bar.color).attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '5 3')
           .attr('stroke-opacity', active ? 0.15 : 0.08)
         // Clipped foreground
-        g.append('rect')
-          .attr('x', x1).attr('y', TRACK_Y).attr('width', x2 - x1).attr('height', TRACK_H).attr('rx', 5)
+        barsG.append('rect')
+          .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
           .attr('fill', 'none')
           .attr('stroke', bar.color).attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '5 3')
@@ -415,20 +548,28 @@ export default function TimelineBar({
           .attr('clip-path', `url(#pbw-bar-clip-${bar.id})`)
       } else {
         // Background track
-        g.append('rect')
-          .attr('x', x1).attr('y', TRACK_Y).attr('width', x2 - x1).attr('height', TRACK_H).attr('rx', 5)
+        barsG.append('rect')
+          .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
           .attr('fill', bar.color).attr('fill-opacity', active ? 0.12 : 0.06)
         // Clipped foreground
-        g.append('rect')
-          .attr('x', x1).attr('y', TRACK_Y).attr('width', x2 - x1).attr('height', TRACK_H).attr('rx', 5)
+        barsG.append('rect')
+          .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
           .attr('fill', bar.color).attr('fill-opacity', active ? 0.72 : 0.18)
           .attr('clip-path', `url(#pbw-bar-clip-${bar.id})`)
+          .attr('filter', active ? 'url(#pbw-chip-shadow)' : null)
+        // Glass sheen overlay (luminance only — journey hue stays true)
+        barsG.append('rect')
+          .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
+          .attr('fill', 'url(#pbw-chip-sheen)')
+          .attr('opacity', active ? 1 : 0.4)
+          .attr('clip-path', `url(#pbw-bar-clip-${bar.id})`)
+          .attr('pointer-events', 'none')
       }
 
       // Transparent hit area — click handled by React delegation on wrapper div
-      g.append('rect')
-        .attr('x', x1 - 1).attr('y', TRACK_Y - 3)
-        .attr('width', x2 - x1 + 2).attr('height', TRACK_H + 6).attr('rx', 5)
+      barsG.append('rect')
+        .attr('x', x1 - 1).attr('y', BY - 3)
+        .attr('width', x2 - x1 + 2).attr('height', BH + 6).attr('rx', 5)
         .attr('fill', 'transparent')
         .style('cursor', 'pointer')
         .attr('data-bar-hit', bar.id)
@@ -464,13 +605,12 @@ export default function TimelineBar({
     }
 
     // ── Left-side section labels ───────────────────────────────────────
-    const SEP_Y = 54
     g.append('line')
-      .attr('x1', 4).attr('x2', 76).attr('y1', SEP_Y).attr('y2', SEP_Y)
+      .attr('x1', 4).attr('x2', 76).attr('y1', SEP).attr('y2', SEP)
       .attr('stroke', '#2e3a58').attr('stroke-width', 1)
     ;[
-      { label: 'TIMELINE', cy: (TRACK_Y + SEP_Y) / 2 },
-      { label: 'BOOKS',    cy: (SEP_Y + TH) / 2      },
+      { label: 'TIMELINE', cy: (BY + AXIS_Y) / 2 },
+      { label: 'BOOKS',    cy: (SEP + TH) / 2    },
     ].forEach(({ label, cy }) =>
       g.append('text')
         .attr('x', 40).attr('y', cy + 3)
@@ -481,50 +621,29 @@ export default function TimelineBar({
         .text(label)
     )
 
-    // ── Diamond spreading ─────────────────────────────────────────────
-    const origCxMap = new Map(
-      journeyData.books.map((book) => [book.id, xScale((book.dateRange[0] + book.dateRange[1]) / 2)])
-    )
-    const adjCxMap = new Map(origCxMap)
-    const byCluster = new Map()
-    journeyData.books.forEach((book, i) => {
-      const key = `${i % 2}_${Math.round(origCxMap.get(book.id))}`
-      if (!byCluster.has(key)) byCluster.set(key, [])
-      byCluster.get(key).push({ book, i })
-    })
-    byCluster.forEach(group => {
-      if (group.length < 2) return
-      const base = origCxMap.get(group[0].book.id)
-      const step = 13
-      group.forEach(({ book }, j) =>
-        adjCxMap.set(book.id, base + (j - (group.length - 1) / 2) * step)
-      )
+    // ── State-3 pole mask — poles pass behind chip bodies ──────────────
+    const poleMask = defs.append('mask')
+      .attr('id', 'pbw-pole-mask')
+      .attr('maskUnits', 'userSpaceOnUse')
+    poleMask.append('rect')
+      .attr('x', 0).attr('y', 0).attr('width', TW).attr('height', TH + 40)
+      .attr('fill', 'white')
+    BOOKS.forEach(b => {
+      const lay = S3_CHIPS[b.id]
+      const cy  = b.row === 0 ? CR0_S3 : CR1_S3
+      poleMask.append('rect')
+        .attr('x', lay.cx - lay.w / 2 + 1).attr('y', cy + 1)
+        .attr('width', lay.w - 2).attr('height', CH_S3 - 2)
+        .attr('rx', 5).attr('fill', 'black')
     })
 
-    // ── Book diamond label placement ───────────────────────────────────
-    const LEVELS_D0 = [60, 72, 107, 119, 154, 167]
-    const LEVELS_D1 = [154, 167, 107, 119, 60, 72]
-    const occMap = { 60:[], 72:[], 107:[], 119:[], 154:[], 167:[] }
-
-    const claimY = (cx, abbrev, levels) => {
-      const halfW = abbrev.length * 9 * 0.58 / 2 + 5
-      for (const y of levels) {
-        if (!occMap[y].some(s => cx + halfW > s.x1 && cx - halfW < s.x2)) {
-          occMap[y].push({ x1: cx - halfW, x2: cx + halfW })
-          return y
-        }
-      }
-      occMap[levels[0]].push({ x1: cx - halfW, x2: cx + halfW })
-      return levels[0]
-    }
-
-    const labelYMap = new Map()
-    journeyData.books
-      .map((book, i) => ({ book, i, cx: adjCxMap.get(book.id) }))
-      .sort((a, b) => a.cx - b.cx)
-      .forEach(({ book, i, cx }) =>
-        labelYMap.set(book.id, claimY(cx, book.abbrev, i % 2 === 0 ? LEVELS_D0 : LEVELS_D1))
-      )
+    // Date anchor line for the books band (visible in state 3 only)
+    g.append('line')
+      .attr('class', 'tl-anchor-line')
+      .attr('x1', 74).attr('x2', TW - 48).attr('y1', SEP).attr('y2', SEP)
+      .attr('stroke', '#232a42').attr('stroke-width', 1)
+      .attr('opacity', bs === 3 ? 1 : 0)
+      .attr('pointer-events', 'none')
 
     // ── Shared hover tooltip ───────────────────────────────────────────
     const tipG = g.append('g').attr('pointer-events', 'none').style('display', 'none')
@@ -536,99 +655,220 @@ export default function TimelineBar({
       .attr('font-family', 'Cinzel, serif').attr('font-size', 9)
       .attr('fill', '#c9a84c').attr('fill-opacity', 0.95)
 
-    // ── Book groups (connector + diamond + label) ──────────────────────
-    journeyData.books.forEach((book, i) => {
-      const cx      = adjCxMap.get(book.id)
-      const isEven  = i % 2 === 0
-      const cy      = isEven ? D0_CY : D1_CY
-      const col     = jColor[book.journeyId] ?? '#a09a8e'
-      const sel     = selectedBookId === book.id
-      const debated = book.attribution === 'debated'
+    // ── Book chips (4-state system) ────────────────────────────────────
+    BOOKS.forEach(b => {
+      const col     = jColor[b.journeyId] ?? '#a09a8e'
+      const sel     = selectedBookId === b.id
+      const debated = b.attribution === 'debated'
+      const cx      = xScale(b.dt)
+      const p       = getP(b, bs)
 
       // Determine initial visibility for play mode
-      const alreadyRevealed = currentYear !== null && book.dateRange[0] <= currentYear
-      const initialOpacity  = (currentYear !== null && !alreadyRevealed) ? 0 : 1
+      const alreadyRevealed  = currentYear !== null && b.dateRange[0] <= currentYear
+      const initialOpacity   = (currentYear !== null && !alreadyRevealed) ? 0 : 1
       const initialTransform = (currentYear !== null && !alreadyRevealed) ? 'translate(0,-10)' : null
 
       const bookG = g.append('g')
-        .attr('data-book-group', book.id)
+        .attr('data-book-group', b.id)
         .attr('opacity', initialOpacity)
 
       if (initialTransform) bookG.attr('transform', initialTransform)
-      if (alreadyRevealed && currentYear !== null) revealedBooks.current.add(book.id)
+      if (alreadyRevealed && currentYear !== null) revealedBooks.current.add(b.id)
 
-      // Connector line
-      bookG.append('line')
-        .attr('x1', cx).attr('x2', cx)
-        .attr('y1', cy - DR).attr('y2', TRACK_Y + TRACK_H)
-        .attr('stroke', col).attr('stroke-width', 0.8)
-        .attr('stroke-opacity', 0.4)
+      // State-3 flag pole + date anchor dot
+      bookG.append('path')
+        .attr('data-pole', b.id)
+        .attr('d', polePath(b))
+        .attr('fill', 'none')
+        .attr('stroke', col).attr('stroke-width', 1)
+        .attr('stroke-opacity', bs === 3 ? 0.55 : 0)
+        .attr('mask', 'url(#pbw-pole-mask)')
+        .attr('pointer-events', 'none')
+      bookG.append('circle')
+        .attr('data-adot', b.id)
+        .attr('cx', cx).attr('cy', SEP).attr('r', 2)
+        .attr('fill', col)
+        .attr('fill-opacity', bs === 3 ? 0.8 : 0)
         .attr('pointer-events', 'none')
 
-      // Error bar for dateDebated books
-      if (book.dateDebated) {
-        const ex1 = xScale(book.dateRange[0])
-        const ex2 = xScale(book.dateRange[1])
-        bookG.append('line')
-          .attr('x1', ex1).attr('x2', ex2).attr('y1', cy).attr('y2', cy)
-          .attr('stroke', col).attr('stroke-width', 1).attr('stroke-opacity', 0.3)
-          .attr('pointer-events', 'none')
-        ;[ex1, ex2].forEach(ex =>
-          bookG.append('line')
-            .attr('x1', ex).attr('x2', ex).attr('y1', cy - 4).attr('y2', cy + 4)
-            .attr('stroke', col).attr('stroke-width', 1).attr('stroke-opacity', 0.3)
-            .attr('pointer-events', 'none')
-        )
-      }
+      // Flag stem — connects the state-0/1 dot to the journey bar band
+      bookG.append('line')
+        .attr('data-stem', b.id)
+        .attr('x1', cx).attr('x2', cx)
+        .attr('y1', b.row === 0 ? FAY + FDR : BY + BH)
+        .attr('y2', b.row === 0 ? BY : FBY - FDR)
+        .attr('stroke', col).attr('stroke-width', 1)
+        .attr('stroke-opacity', p.sto)
+        .attr('pointer-events', 'none')
 
-      // Gold ring when selected
-      if (sel) {
-        bookG.append('polygon')
-          .attr('points', `${cx},${cy-DR-5} ${cx+DR+5},${cy} ${cx},${cy+DR+5} ${cx-DR-5},${cy}`)
-          .attr('fill', 'none')
-          .attr('stroke', '#e9c86c').attr('stroke-width', 1.5).attr('stroke-opacity', 0.9)
-          .attr('pointer-events', 'none')
-      }
-
-      // Diamond
-      bookG.append('polygon')
-        .attr('class', 'book-diamond')
-        .attr('data-book', book.id)
-        .attr('points', `${cx},${cy-DR} ${cx+DR},${cy} ${cx},${cy+DR} ${cx-DR},${cy}`)
-        .attr('fill', sel ? '#0c0f18' : col)
-        .attr('fill-opacity', sel ? 0.95 : 0.18)
-        .attr('stroke', col).attr('stroke-width', sel ? 1.8 : 1.2).attr('stroke-opacity', 0.85)
+      // Chip body — one rounded rect morphs dot → compact chip → full chip
+      bookG.append('rect')
+        .attr('data-chip', b.id)
+        .attr('data-book', b.id)
+        .attr('x', p.x).attr('y', p.y)
+        .attr('width', p.w).attr('height', p.h).attr('rx', p.rx)
+        .attr('fill', col)
+        .attr('fill-opacity', sel ? Math.min(p.fo + 0.2, 1) : p.fo)
+        .attr('stroke', sel ? '#e9c86c' : col)
+        .attr('stroke-width', sel ? 1.6 : 1.1)
+        .attr('stroke-opacity', sel ? Math.min(p.so + 0.3, 1) : p.so)
+        .attr('filter', sel ? 'url(#pbw-chip-glow)' : 'url(#pbw-chip-shadow)')
         .style('cursor', 'pointer')
-        .on('click', ev => { ev.stopPropagation(); onBookClick(book.id) })
+        .style('pointer-events', bs === 0 ? 'none' : 'all')
+        .on('click', ev => { ev.stopPropagation(); onBookClick(b.id) })
         .on('mouseenter', () => {
+          const s = bookStateRef.current
+          const q = getP(b, s)
           tipText
             .attr('font-style', debated ? 'italic' : 'normal')
             .attr('fill', sel ? '#e9c86c' : col)
-            .text(book.name)
-          const tw = tipText.node().getComputedTextLength()
-          const rw = tw + 16, rh = 14
-          const ry = cy - DR - rh - 6
-          tipRect.attr('x', cx - rw / 2).attr('y', ry).attr('width', rw).attr('height', rh)
-          tipText.attr('x', cx).attr('y', ry + rh - 3)
+            .text(`${b.name} · ${dateLabel(b)}`)
+          const tw  = tipText.node().getComputedTextLength()
+          const rw  = tw + 16, rh = 14
+          const tcx = clamp(q.x + q.w / 2, rw / 2 + 4, TW - rw / 2 - 4)
+          let ry = q.y - rh - 6
+          if (ry < VIEWBOXES[s][1] + 2) ry = q.y + q.h + 6
+          tipRect.attr('x', tcx - rw / 2).attr('y', ry).attr('width', rw).attr('height', rh)
+          tipText.attr('x', tcx).attr('y', ry + rh - 3)
           tipG.style('display', null)
         })
         .on('mouseleave', () => tipG.style('display', 'none'))
 
-      // Abbreviation label
+      // Glass sheen overlay — luminance-only gradient, doesn't tint the journey color
+      bookG.append('rect')
+        .attr('data-sheen', b.id)
+        .attr('x', p.x).attr('y', p.y)
+        .attr('width', p.w).attr('height', p.h).attr('rx', p.rx)
+        .attr('fill', 'url(#pbw-chip-sheen)')
+        .attr('opacity', p.so)
+        .attr('pointer-events', 'none')
+
+      // Abbreviation — visible in state 2
+      const aa = abbrevAttrs(b, bs)
       bookG.append('text')
-        .attr('x', cx).attr('y', labelYMap.get(book.id))
+        .attr('data-abbrev', b.id)
+        .attr('x', aa.x).attr('y', aa.y)
         .attr('text-anchor', 'middle')
         .attr('font-family', 'Cinzel, serif').attr('font-size', 9)
         .attr('font-style', debated ? 'italic' : 'normal')
         .attr('fill', sel ? '#e9c86c' : col)
-        .attr('fill-opacity', sel ? 1 : 0.75)
+        .attr('fill-opacity', aa.o)
         .attr('pointer-events', 'none')
-        .text(book.abbrev)
+        .text(b.abbrev)
+
+      // Full name + date — visible in state 3
+      const na = nameAttrs(b, bs)
+      bookG.append('text')
+        .attr('data-name', b.id)
+        .attr('x', na.x).attr('y', na.y)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'Cinzel, serif').attr('font-size', 10.5)
+        .attr('letter-spacing', 0.5)
+        .attr('font-style', debated ? 'italic' : 'normal')
+        .attr('fill', sel ? '#e9c86c' : col)
+        .attr('fill-opacity', na.o)
+        .attr('pointer-events', 'none')
+        .text(b.name)
+
+      const da = dateAttrs(b, bs)
+      bookG.append('text')
+        .attr('data-date', b.id)
+        .attr('x', da.x).attr('y', da.y)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'Cormorant Garamond, serif')
+        .attr('font-style', 'italic').attr('font-size', 8.5)
+        .attr('fill', col)
+        .attr('fill-opacity', da.o)
+        .attr('pointer-events', 'none')
+        .text(dateLabel(b))
     })
 
     tipG.raise()
 
+    // ── Dock magnification for state-1 flag dots ───────────────────────
+    const svgSel = d3.select(svgRef.current)
+    svgSel.on('mousemove.dock', ev => {
+      if (bookStateRef.current !== 1) return
+      const [mx] = d3.pointer(ev, svgRef.current)
+      BOOKS.forEach(b => {
+        const cx = xScale(b.dt)
+        const r  = FDR * (1 + 1.5 * Math.exp(-(((cx - mx) / 45) ** 2)))
+        const dy = b.row === 0 ? FAY : FBY
+        const x = cx - r, y = dy - r, wh = 2 * r
+        g.select(`[data-chip="${b.id}"]`).attr('x', x).attr('y', y).attr('width', wh).attr('height', wh).attr('rx', r)
+        g.select(`[data-sheen="${b.id}"]`).attr('x', x).attr('y', y).attr('width', wh).attr('height', wh).attr('rx', r)
+      })
+    })
+    svgSel.on('mouseleave.dock', () => {
+      if (bookStateRef.current !== 1) return
+      BOOKS.forEach(b => {
+        const q = getP(b, 1)
+        g.select(`[data-chip="${b.id}"]`).attr('x', q.x).attr('y', q.y).attr('width', q.w).attr('height', q.h).attr('rx', q.rx)
+        g.select(`[data-sheen="${b.id}"]`).attr('x', q.x).attr('y', q.y).attr('width', q.w).attr('height', q.h).attr('rx', q.rx)
+      })
+    })
+
   }, [activeJourneys, selectedBookId, highlightRange, onBookClick, isPlaying, detailJourneyId])
+
+  // ── 4-state transition — morph chips, poles, bars, and viewBox ────────
+  useEffect(() => {
+    bookStateRef.current = bookState
+    const svg = d3.select(svgRef.current)
+    const g   = d3.select(mainGRef.current)
+
+    if (!bookStateInit.current) {
+      bookStateInit.current = true
+      svg.attr('viewBox', VIEWBOXES[bookState].join(' '))
+      return
+    }
+
+    const dur = 650, ease = d3.easeCubicInOut
+
+    svg.transition('bookState').duration(dur).ease(ease)
+      .attr('viewBox', VIEWBOXES[bookState].join(' '))
+
+    g.select('.tl-bars').transition('bookState').duration(dur).ease(ease)
+      .attr('opacity', bookState === 3 ? 0.07 : 1)
+    g.select('.tl-anchor-line').transition('bookState').duration(dur).ease(ease)
+      .attr('opacity', bookState === 3 ? 1 : 0)
+
+    BOOKS.forEach(b => {
+      const bookG = g.select(`[data-book-group="${b.id}"]`)
+      if (bookG.empty()) return
+      const sel = selectedBookIdRef.current === b.id
+      const p   = getP(b, bookState)
+
+      bookG.select('[data-chip]')
+        .style('pointer-events', bookState === 0 ? 'none' : 'all')
+        .transition('bookState').duration(dur).ease(ease)
+        .attr('x', p.x).attr('y', p.y)
+        .attr('width', p.w).attr('height', p.h).attr('rx', p.rx)
+        .attr('fill-opacity', sel ? Math.min(p.fo + 0.2, 1) : p.fo)
+        .attr('stroke-opacity', sel ? Math.min(p.so + 0.3, 1) : p.so)
+
+      bookG.select('[data-sheen]').transition('bookState').duration(dur).ease(ease)
+        .attr('x', p.x).attr('y', p.y)
+        .attr('width', p.w).attr('height', p.h).attr('rx', p.rx)
+        .attr('opacity', p.so)
+
+      bookG.select('[data-stem]').transition('bookState').duration(dur).ease(ease)
+        .attr('stroke-opacity', p.sto)
+      bookG.select('[data-pole]').transition('bookState').duration(dur).ease(ease)
+        .attr('stroke-opacity', bookState === 3 ? 0.55 : 0)
+      bookG.select('[data-adot]').transition('bookState').duration(dur).ease(ease)
+        .attr('fill-opacity', bookState === 3 ? 0.8 : 0)
+
+      const aa = abbrevAttrs(b, bookState)
+      bookG.select('[data-abbrev]').transition('bookState').duration(dur).ease(ease)
+        .attr('x', aa.x).attr('y', aa.y).attr('fill-opacity', aa.o)
+      const na = nameAttrs(b, bookState)
+      bookG.select('[data-name]').transition('bookState').duration(dur).ease(ease)
+        .attr('x', na.x).attr('y', na.y).attr('fill-opacity', na.o)
+      const da = dateAttrs(b, bookState)
+      bookG.select('[data-date]').transition('bookState').duration(dur).ease(ease)
+        .attr('x', da.x).attr('y', da.y).attr('fill-opacity', da.o)
+    })
+  }, [bookState])
 
   const detailJourney  = detailJourneyId ? journeyData.journeys.find(j => j.id === detailJourneyId) : null
   const selectedBook   = selectedBookId  ? journeyData.books.find(b => b.id === selectedBookId)    : null
@@ -664,23 +904,75 @@ export default function TimelineBar({
     window.addEventListener('mouseup', onUp)
   }, [])
 
+  const barStyle = tlHeight
+    ? { height: tlHeight }
+    : detailJourneyId
+      ? undefined
+      : {
+          height: STATE_HEIGHTS[bookState] + (showStoryRow ? 68 : 0),
+          transition: 'height 0.65s cubic-bezier(0.65, 0, 0.35, 1)',
+        }
+
   return (
+    <>
+      {!detailJourneyId && (
+        <div className="tl-state-nav">
+          <span className="tl-state-nav__label">{STATE_LABELS[bookState]}</span>
+          <div className="tl-state-nav__dots">
+            {[0, 1, 2, 3].map(s => (
+              <button
+                key={s}
+                className={`tl-state-dot${s === bookState ? ' tl-state-dot--active' : ''}`}
+                onClick={() => setBookState(s)}
+                aria-label={STATE_LABELS[s]}
+                title={STATE_LABELS[s]}
+              />
+            ))}
+          </div>
+          <button
+            className="tl-state-next"
+            onClick={() => setBookState((bookState + 1) % 4)}
+          >
+            {bookState < 3 ? 'Next ›' : '‹ Journeys'}
+          </button>
+        </div>
+      )}
     <div
       className={`timeline-bar${detailJourneyId ? ' timeline-bar--detail' : ''}${showStoryRow ? ' timeline-bar--story' : ''}`}
-      style={tlHeight ? { height: tlHeight } : undefined}
+      style={barStyle}
       onClick={handleBarClick}
     >
       <div className="tl-resize-handle" onMouseDown={handleResizeStart} />
 
       {/* Overview area — flex column so story row shares vertical space */}
       <div className="tl-overview-area" style={{ display: detailJourneyId ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* Main overview SVG */}
+        {/* Main overview SVG — viewBox is set imperatively (animated per book state) */}
         <svg
           ref={svgRef}
-          viewBox={`0 0 ${TW} ${TH}`}
           preserveAspectRatio="none"
           style={{ width: '100%', flex: 1, cursor: 'crosshair', minHeight: 0 }}
         >
+          <defs>
+            {/* Soft elevation shadow — gives bars/chips a lifted, glassmorphic feel */}
+            <filter id="pbw-chip-shadow" x="-40%" y="-60%" width="180%" height="260%">
+              <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#000" floodOpacity="0.5" />
+            </filter>
+            {/* Soft gold glow for the selected book chip */}
+            <filter id="pbw-chip-glow" x="-100%" y="-100%" width="300%" height="300%">
+              <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#000" floodOpacity="0.5" />
+              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            {/* Luminance-only sheen — top highlight fading to a faint base shadow */}
+            <linearGradient id="pbw-chip-sheen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.16" />
+              <stop offset="45%"  stopColor="#ffffff" stopOpacity="0.02" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.12" />
+            </linearGradient>
+          </defs>
           <defs ref={defsRef} />
           <g ref={mainGRef} />
           <g ref={scrubGRef} />
@@ -748,5 +1040,6 @@ export default function TimelineBar({
         </div>
       )}
     </div>
+    </>
   )
 }

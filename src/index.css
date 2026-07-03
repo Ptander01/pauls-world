@@ -400,11 +400,91 @@ body {
 
 /* ── Timeline bar ───────────────────────────────────── */
 
+/* 4-state books nav — dots + Next button above the timeline card */
+.tl-state-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 4px 14px;
+  background: linear-gradient(180deg, rgba(22,28,50,0.95) 0%, rgba(15,19,36,0.95) 100%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--border-lt);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 2px 10px rgba(0,0,0,0.35);
+  position: relative;
+  z-index: 5;
+}
+
+.tl-state-nav__label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #7a8ab0;
+  text-transform: uppercase;
+}
+
+.tl-state-nav__dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tl-state-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--pill-bg);
+  cursor: pointer;
+  box-shadow: var(--lip-out);
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.tl-state-dot:hover {
+  border-color: rgba(201,168,76,0.4);
+  box-shadow: var(--lip-hover);
+}
+.tl-state-dot--active {
+  background: var(--pill-bg-active);
+  border-color: rgba(201, 168, 76, 0.6);
+  box-shadow: var(--lip-in-gold), 0 0 6px rgba(201,168,76,0.35);
+  transform: scale(1.15);
+}
+
+.tl-state-next {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  background: var(--pill-bg);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 4px;
+  padding: 3px 11px;
+  cursor: pointer;
+  box-shadow: var(--lip-out);
+  transition: box-shadow 0.15s, border-color 0.15s, color 0.15s;
+}
+.tl-state-next:hover {
+  color: var(--accent-lt);
+  border-color: rgba(201, 168, 76, 0.55);
+  box-shadow: var(--lip-hover);
+}
+.tl-state-next:active {
+  box-shadow: var(--lip-in-gold);
+}
+
 .timeline-bar {
   flex-shrink: 0;
   height: 180px;
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(19,24,42,0.98) 0%, rgba(13,17,32,0.98) 100%);
   border-top: 2px solid var(--border-lt);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 -4px 20px rgba(0,0,0,0.35);
   transition: height 0.2s ease;
   overflow: hidden;
   position: relative;
