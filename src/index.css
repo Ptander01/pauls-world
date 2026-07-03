@@ -1911,6 +1911,11 @@ body {
   border-bottom-color: rgba(180,168,148,0.5);
 }
 
+/* Letterbox areas around the map SVG match the light basemap sea color */
+[data-theme="light"] .map-container {
+  background: #b8c8d4;
+}
+
 [data-theme="light"] .timeline-bar {
   background: linear-gradient(180deg, rgba(237,231,217,0.98) 0%, rgba(225,218,204,0.98) 100%);
   border-top-color: var(--border-lt);

@@ -16,17 +16,19 @@ const FBY = 48           // state-0/1 flag dot row (odd books, below bars)
 const AXIS_Y = 62
 const SEP = 78           // timeline / books band separator
 const ROUTE_Y = SEP + 4  // horizontal routing level for displaced chip poles
-const FDR = 4            // flag dot radius
+// Flag dot radius — larger touch targets on coarse pointers (phones/tablets)
+const FDR = (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) ? 7 : 4
 const CR0_S2 = 88,  CR1_S2 = 113, CH_S2 = 20   // state-2 compact chip rows
 const CR0_S3 = 106, CR1_S3 = 165, CH_S3 = 30   // state-3 expanded chip rows
 
 const VIEWBOXES = [
   [0, 0, TW, 78],    // state 0 — journey bars only
   [0, 0, TW, 78],    // state 1 — bars + book flags
-  [0, 0, TW, 210],   // state 2 — both rows, compact chips
+  [0, 0, TW, 150],   // state 2 — both rows, compact chips (chips end ~y=133)
   [0, 75, TW, 123],  // state 3 — books only
 ]
-const STATE_HEIGHTS = [96, 96, 236, 148]
+const STATE_HEIGHTS    = [96, 96, 170, 148]   // px card heights, ≥900px viewports
+const STATE_HEIGHTS_SM = [70, 70, 128, 108]   // px card heights, <900px viewports
 const STATE_LABELS  = ['Journeys', 'Letters Appear', 'Journeys + Letters', 'The Letters']
 
 const xScale = d3.scaleLinear().domain([44, 68]).range([80, 1140])
@@ -80,6 +82,24 @@ const S3_CHIPS = (() => {
   return Object.fromEntries(chips.map(c => [c.id, c]))
 })()
 
+// State-2 stagger for books whose chips stack exactly (same row + same date
+// midpoint — the prison epistles). ±16px keeps the date-range encoding honest
+// while separating the abbrev labels and exposing both click targets.
+const S2_OFFSETS = (() => {
+  const clusters = new Map()
+  BOOKS.forEach(b => {
+    const key = `${b.row}_${Math.round(xScale(b.dt))}`
+    if (!clusters.has(key)) clusters.set(key, [])
+    clusters.get(key).push(b.id)
+  })
+  const offsets = {}
+  clusters.forEach(ids => {
+    if (ids.length < 2) return
+    ids.forEach((id, j) => { offsets[id] = (j - (ids.length - 1) / 2) * 32 })
+  })
+  return offsets
+})()
+
 // Chip geometry per state — one rounded rect morphs dot → compact chip → full chip.
 // fo = fill-opacity, so = stroke-opacity, sto = flag-stem opacity.
 function getP(b, s) {
@@ -92,7 +112,8 @@ function getP(b, s) {
   if (s === 2) {
     const rw = Math.max(xScale(b.dateRange[1]) - xScale(b.dateRange[0]), 28)
     const cy = b.row === 0 ? CR0_S2 : CR1_S2
-    return { x: cx - rw / 2, y: cy, w: rw, h: CH_S2, rx: 4, fo: 0.15, so: 0.55, sto: 0 }
+    const off = S2_OFFSETS[b.id] ?? 0
+    return { x: cx - rw / 2 + off, y: cy, w: rw, h: CH_S2, rx: 4, fo: 0.15, so: 0.55, sto: 0 }
   }
   const lay = S3_CHIPS[b.id]
   const cy  = b.row === 0 ? CR0_S3 : CR1_S3
@@ -111,7 +132,7 @@ function polePath(b) {
 function abbrevAttrs(b, s) {
   if (s === 2) {
     const cy = b.row === 0 ? CR0_S2 : CR1_S2
-    return { x: xScale(b.dt), y: cy + CH_S2 / 2 + 3, o: 0.9 }
+    return { x: xScale(b.dt) + (S2_OFFSETS[b.id] ?? 0), y: cy + CH_S2 / 2 + 3, o: 0.9 }
   }
   if (s === 3) {
     const lay = S3_CHIPS[b.id]
@@ -350,6 +371,17 @@ export default function TimelineBar({
   const bookStateRef      = useRef(bookState)
   const bookStateInit     = useRef(false)
   const selectedBookIdRef = useRef(selectedBookId)
+
+  // Compact card heights on narrow viewports (matches the 900px CSS breakpoint)
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const onChange = e => setIsNarrow(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     selectedBookIdRef.current = selectedBookId
@@ -609,10 +641,11 @@ export default function TimelineBar({
       .attr('x1', 4).attr('x2', 76).attr('y1', SEP).attr('y2', SEP)
       .attr('stroke', '#2e3a58').attr('stroke-width', 1)
     ;[
-      { label: 'TIMELINE', cy: (BY + AXIS_Y) / 2 },
-      { label: 'BOOKS',    cy: (SEP + TH) / 2    },
-    ].forEach(({ label, cy }) =>
+      { label: 'TIMELINE', cy: (BY + AXIS_Y) / 2,   cls: 'tl-lbl-timeline' },
+      { label: 'BOOKS',    cy: bs === 3 ? 150 : 110, cls: 'tl-lbl-books' },
+    ].forEach(({ label, cy, cls }) =>
       g.append('text')
+        .attr('class', cls)
         .attr('x', 40).attr('y', cy + 3)
         .attr('text-anchor', 'middle')
         .attr('font-family', 'Cinzel, serif').attr('font-size', 7)
@@ -831,6 +864,8 @@ export default function TimelineBar({
       .attr('opacity', bookState === 3 ? 0.07 : 1)
     g.select('.tl-anchor-line').transition('bookState').duration(dur).ease(ease)
       .attr('opacity', bookState === 3 ? 1 : 0)
+    g.select('.tl-lbl-books').transition('bookState').duration(dur).ease(ease)
+      .attr('y', (bookState === 3 ? 150 : 110) + 3)
 
     BOOKS.forEach(b => {
       const bookG = g.select(`[data-book-group="${b.id}"]`)
@@ -909,7 +944,7 @@ export default function TimelineBar({
     : detailJourneyId
       ? undefined
       : {
-          height: STATE_HEIGHTS[bookState] + (showStoryRow ? 68 : 0),
+          height: (isNarrow ? STATE_HEIGHTS_SM : STATE_HEIGHTS)[bookState] + (showStoryRow ? 68 : 0),
           transition: 'height 0.65s cubic-bezier(0.65, 0, 0.35, 1)',
         }
 
