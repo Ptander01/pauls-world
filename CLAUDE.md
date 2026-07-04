@@ -104,6 +104,10 @@ Four separate `useEffect` hooks:
 - Tier-2 city labels: `font-size = 11/k`, visible at k ≥ 2
 - Tier-3 city labels: `font-size = 9/k`, visible at k ≥ 3.5
 
+**Zoom-aware strokes/dots:** `applyZoomStyling` also divides journey-line widths, city dot radii (+ their strokes, via `data-r0`/`data-sw0` attrs), graticule/border/coast/province-border/Via Egnatia widths by `k^0.6` (rendered size grows as `k^0.4` — lines stay lines under zoom, not ribbons), and keeps `.seg-hit` distance-hover targets screen-constant at `12/k`. All labels carry a `paint-order: stroke` halo (`haloColor`: dark `#0a1220`, light `#d3c9ae`) whose width scales `1/k` alongside the font.
+
+**Basemap:** 50m atlas ships in the bundle for first paint; `countries-10m.json` (~3.5MB raw, code-split) lazy-loads via `requestIdleCallback` and swaps into the `land`/`borders` memos. The 10m land rings have inverted spherical windings (sum to 41 sr — d3-geo fills the sea), so `rewindRings` reverses any ring whose single-ring `geoArea > 2π`; note `topojson.feature` returns a *FeatureCollection* for world-atlas land, which `rewindRings` walks. A `.map-coast` stroke (theme-aware) outlines the land edge. Journey `lineGen` uses `curveCatmullRom.alpha(1)` (chordal) to avoid overshoot loops at sharp waypoint turns.
+
 **Journey line opacity:** two-mode system. Normal view: active journeys `stroke-opacity: 0.85`, inactive `0` (invisible). Book focus mode: the book's journey `0.3` full line + `0.9` highlighted segment; all other journeys `0` regardless of toggle state.
 
 **City dot and label visibility:** only cities visited by at least one currently-active journey (or the selected book's journey) render with full dots and labels. All other journey cities render as ghost outlines only (`fill: none`, `stroke-opacity: 0.15`) with no label.

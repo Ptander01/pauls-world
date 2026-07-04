@@ -24,6 +24,27 @@ const JOURNEY_MAP = {
   'post-rome':    journeyData.colorSystem.postRome,
 }
 
+// d3-geo treats polygon rings spherically: a ring wound the "wrong" way fills
+// everything OUTSIDE it (the 10m land rings sum to 41 steradians — sea renders
+// as land). Rewind any ring that claims more than half the sphere. Note
+// topojson.feature returns a FeatureCollection for world-atlas land (it's a
+// GeometryCollection object), so walk that shape too.
+function rewindRings(node) {
+  if (node.type === 'FeatureCollection') {
+    node.features.forEach(rewindRings)
+    return node
+  }
+  const fixPoly = polyCoords => polyCoords.map(ring =>
+    d3.geoArea({ type: 'Polygon', coordinates: [ring] }) > 2 * Math.PI
+      ? ring.slice().reverse()
+      : ring
+  )
+  const geom = node.geometry ?? node
+  if (geom.type === 'Polygon') geom.coordinates = fixPoly(geom.coordinates)
+  else if (geom.type === 'MultiPolygon') geom.coordinates = geom.coordinates.map(fixPoly)
+  return node
+}
+
 function normalizeProvinceName(rawName) {
   const map = {
     'Asia':                  'asia',
@@ -51,10 +72,30 @@ function normalizeProvinceName(rawName) {
 
 function applyZoomStyling(mapGEl, k) {
   const g = d3.select(mapGEl)
-  g.selectAll('.province-label').attr('font-size', 9 / k)
-  g.selectAll('.label-t1').attr('font-size', 13 / k)
-  g.selectAll('.label-t2').attr('font-size', 11 / k).attr('opacity', k >= 2   ? 0.85 : 0)
-  g.selectAll('.label-t3').attr('font-size',  9 / k).attr('opacity', k >= 3.5 ? 0.75 : 0)
+  // Labels hold constant screen size (1/k); halo width tracks the font
+  g.selectAll('.province-label').attr('font-size', 9 / k).attr('stroke-width', 2.4 / k)
+  g.selectAll('.label-t1').attr('font-size', 13 / k).attr('stroke-width', 3 / k)
+  g.selectAll('.label-t2').attr('font-size', 11 / k).attr('stroke-width', 2.6 / k).attr('opacity', k >= 2   ? 0.85 : 0)
+  g.selectAll('.label-t3').attr('font-size',  9 / k).attr('stroke-width', 2.2 / k).attr('opacity', k >= 3.5 ? 0.75 : 0)
+  g.selectAll('.road-label').attr('font-size', 9 / k).attr('stroke-width', 2.4 / k).attr('letter-spacing', 3 / k)
+
+  // Strokes and dots thin gently under zoom: rendered size grows as k^0.4
+  // instead of k, so zoomed-in lines stay lines rather than ribbons.
+  const s = Math.pow(k, 0.6)
+  g.selectAll('.journey-line').attr('stroke-width', 2 / s)
+  g.selectAll('.map-graticule').attr('stroke-width', 0.5 / s)
+  g.selectAll('.map-borders').attr('stroke-width', 0.7 / s)
+  g.selectAll('.map-coast').attr('stroke-width', 0.6 / s)
+  g.selectAll('.province-border').attr('stroke-width', 0.8 / s)
+  g.selectAll('.via-egnatia').attr('stroke-width', 0.8 / s)
+  g.selectAll('.seg-hit').attr('stroke-width', 12 / k) // hit zone stays screen-constant
+
+  g.selectAll('.city-dot').each(function () {
+    const el  = d3.select(this)
+    const r0  = parseFloat(this.dataset.r0 ?? this.getAttribute('r'))
+    const sw0 = parseFloat(this.dataset.sw0 ?? this.getAttribute('stroke-width'))
+    el.attr('r', r0 / s).attr('stroke-width', sw0 / s)
+  })
 }
 
 function labelBox(lx, ly, text, fontSize, ta) {
@@ -210,13 +251,31 @@ export default function MapView({
   const [segmentTip,    setSegmentTip]    = useState(null)  // { from, to, km, x, y }
 
 
+  // 50m atlas ships in the bundle for first paint; 10m (~3MB) lazy-loads
+  // during idle and swaps in for crisper Aegean coastlines.
+  const [hiAtlas, setHiAtlas] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      import('world-atlas/countries-10m.json')
+        .then(m => { if (!cancelled) setHiAtlas(m.default) })
+        .catch(() => {}) // 50m stays if the fetch fails
+    const ric = window.requestIdleCallback
+    const id = ric ? ric(load, { timeout: 8000 }) : setTimeout(load, 3000)
+    return () => {
+      cancelled = true
+      ;(ric ? window.cancelIdleCallback : clearTimeout)(id)
+    }
+  }, [])
+
+  const atlas = hiAtlas ?? countries50m
   const land = useMemo(
-    () => topojson.feature(countries50m, countries50m.objects.land),
-    []
+    () => rewindRings(topojson.feature(atlas, atlas.objects.land)),
+    [atlas]
   )
   const borders = useMemo(
-    () => topojson.mesh(countries50m, countries50m.objects.countries, (a, b) => a !== b),
-    []
+    () => topojson.mesh(atlas, atlas.objects.countries, (a, b) => a !== b),
+    [atlas]
   )
   const projection = useMemo(
     () => d3.geoMercator().center([26, 37]).scale(950).translate([W / 2, H / 2]),
@@ -240,7 +299,7 @@ export default function MapView({
     d3.line()
       .x(d => projection(cityById[d.cityId].coords)[0])
       .y(d => projection(cityById[d.cityId].coords)[1])
-      .curve(d3.curveCatmullRom.alpha(0.5)),
+      .curve(d3.curveCatmullRom.alpha(1)), // chordal — less overshoot at sharp turns than 0.5
   [projection, cityById])
 
   // ── Zoom — runs once on mount ──────────────────────────────────────────
@@ -282,10 +341,14 @@ export default function MapView({
     mapG.selectAll('*').remove()
     lineDataRef.current = {}
 
+    // Halo behind labels — sits between the theme's land and sea tones
+    const haloColor = isLight ? '#d3c9ae' : '#0a1220'
+
     // ── Graticule
     mapG.append('path')
       .datum(d3.geoGraticule().step([5, 5])())
       .attr('d', pathGen)
+      .attr('class', 'map-graticule')
       .attr('fill', 'none')
       .attr('stroke', isLight ? '#8a9eb0' : '#0c1828')
       .attr('stroke-width', 0.5)
@@ -298,10 +361,21 @@ export default function MapView({
       .attr('fill', isLight ? '#cbbfa0' : '#111d2e')
       .attr('stroke', 'none')
 
+    // ── Coastline stroke — sharpens the sea/land edge
+    mapG.append('path')
+      .datum(land)
+      .attr('d', pathGen)
+      .attr('class', 'map-coast')
+      .attr('fill', 'none')
+      .attr('stroke', isLight ? '#8fa4b4' : '#24364e')
+      .attr('stroke-width', 0.6)
+      .attr('stroke-opacity', 0.8)
+
     // ── Country borders
     mapG.append('path')
       .datum(borders)
       .attr('d', pathGen)
+      .attr('class', 'map-borders')
       .attr('fill', 'none')
       .attr('stroke', isLight ? '#9aacb8' : '#1e2e48')
       .attr('stroke-width', 0.7)
@@ -321,6 +395,7 @@ export default function MapView({
         .selectAll('path')
         .data(provincesGeo.features)
         .join('path')
+        .attr('class', 'province-border')
         .attr('d', pathGen)
         .attr('fill', 'none')
         .attr('stroke', '#c9a84c')
@@ -343,6 +418,10 @@ export default function MapView({
           .attr('font-size', 9 / kRef.current)
           .attr('fill', isLight ? '#6a5830' : '#c9a84c')
           .attr('fill-opacity', isLight ? 0.45 : 0.3)
+          .attr('paint-order', 'stroke')
+          .attr('stroke', haloColor)
+          .attr('stroke-opacity', 0.4)
+          .attr('stroke-linejoin', 'round')
           .text(feature.properties.name)
       })
     }
@@ -352,6 +431,7 @@ export default function MapView({
     const viaEgnatiaProjected = viaEgnatiaWaypoints.map(c => projection(c))
     const roadG = mapG.append('g').attr('pointer-events', 'none')
     roadG.append('path')
+      .attr('class', 'via-egnatia')
       .attr('d', `M ${viaEgnatiaProjected.map(p => p.join(',')).join(' L ')}`)
       .attr('fill', 'none')
       .attr('stroke', '#c9a84c')
@@ -361,6 +441,7 @@ export default function MapView({
       .attr('stroke-linecap', 'round')
     const midPt = viaEgnatiaProjected[1]
     roadG.append('text')
+      .attr('class', 'road-label')
       .attr('x', midPt[0])
       .attr('y', midPt[1] - 7)
       .attr('text-anchor', 'middle')
@@ -369,6 +450,10 @@ export default function MapView({
       .attr('letter-spacing', 3)
       .attr('fill', '#c9a84c')
       .attr('fill-opacity', 0.35)
+      .attr('paint-order', 'stroke')
+      .attr('stroke', haloColor)
+      .attr('stroke-opacity', 0.4)
+      .attr('stroke-linejoin', 'round')
       .text('VIA EGNATIA')
 
     // ── Journey lines
@@ -438,6 +523,7 @@ export default function MapView({
           const segWps = [waypoints[i], waypoints[i + 1]]
           linesG.append('path')
             .datum(segWps)
+            .attr('class', 'seg-hit')
             .attr('d', lineGen)
             .attr('fill', 'none')
             .attr('stroke', 'transparent')
@@ -592,13 +678,16 @@ export default function MapView({
       const fill = isActive ? (city.tier === 1 ? '#c9a84c' : '#a09a8e') : 'none'
       const fo   = isActive ? (city.tier === 1 ? 1 : city.tier === 2 ? 0.75 : 0.55) : 0
 
+      const sw = isActive ? (city.tier === 1 ? 1 : 0.5) : 0.5
       dotsG.append('circle')
         .attr('class', 'city-dot')
         .attr('data-city', city.id)
+        .attr('data-r0', r)
+        .attr('data-sw0', sw)
         .attr('cx', x).attr('cy', y).attr('r', r)
         .attr('fill', fill).attr('fill-opacity', fo)
         .attr('stroke', isActive ? '#060d1a' : '#a09a8e')
-        .attr('stroke-width', isActive ? (city.tier === 1 ? 1 : 0.5) : 0.5)
+        .attr('stroke-width', sw)
         .attr('stroke-opacity', isActive ? 1 : 0.15)
         .attr('cursor', isActive ? 'pointer' : 'default')
         .on('mouseover', function(event) {
@@ -633,6 +722,10 @@ export default function MapView({
           .attr('font-size', 13)
           .attr('fill', '#c9a84c')
           .attr('fill-opacity', 0.85)
+          .attr('paint-order', 'stroke')
+          .attr('stroke', haloColor)
+          .attr('stroke-opacity', 0.75)
+          .attr('stroke-linejoin', 'round')
           .text(city.name)
         placedBoxes.push(labelBox(lx, ly, city.name, 13, off.ta))
       }
@@ -647,6 +740,10 @@ export default function MapView({
           .attr('font-size', 11)
           .attr('fill', '#c9a84c')
           .attr('fill-opacity', 0.75)
+          .attr('paint-order', 'stroke')
+          .attr('stroke', haloColor)
+          .attr('stroke-opacity', 0.65)
+          .attr('stroke-linejoin', 'round')
           .attr('opacity', 0)
           .text(city.name)
         placedBoxes.push(labelBox(lx, ly, city.name, 11, ta))
@@ -662,6 +759,10 @@ export default function MapView({
           .attr('font-size', 9)
           .attr('fill', '#a09a8e')
           .attr('fill-opacity', 0.7)
+          .attr('paint-order', 'stroke')
+          .attr('stroke', haloColor)
+          .attr('stroke-opacity', 0.65)
+          .attr('stroke-linejoin', 'round')
           .attr('opacity', 0)
           .text(city.name)
         placedBoxes.push(labelBox(lx, ly, city.name, 9, ta))
