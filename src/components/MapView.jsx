@@ -45,6 +45,84 @@ function rewindRings(node) {
   return node
 }
 
+// ── Journey segment helpers (sea/land split rendering + progressive reveal) ──
+
+// Sample a sub-range of a path into a polyline that matches the curve shape
+function samplePath(node, l0, l1, step = 6) {
+  const pts = []
+  const n = Math.max(2, Math.ceil((l1 - l0) / step))
+  for (let i = 0; i <= n; i++) {
+    const p = node.getPointAtLength(l0 + ((l1 - l0) * i) / n)
+    pts.push(`${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+  }
+  return 'M' + pts.join('L')
+}
+
+// Progressive reveal for a dashed segment: emit the dash pattern up to
+// `visible`, then extend/append a gap large enough to swallow the rest.
+// (stroke-dashoffset only shifts a pattern — it can't truncate one.)
+function dashedRevealArray(visible, segLen, dash, gap) {
+  if (visible <= 0.1) return `0 ${Math.ceil(segLen) + 12}`
+  if (visible >= segLen - 0.5) return `${dash} ${gap}`
+  const parts = []
+  let acc = 0
+  while (acc < visible) {
+    const d = Math.min(dash, visible - acc)
+    parts.push(d.toFixed(1))
+    acc += d
+    if (acc >= visible) break
+    const g = Math.min(gap, visible - acc)
+    parts.push(g.toFixed(1))
+    acc += g
+  }
+  const rest = Math.ceil(segLen - acc) + 12
+  if (parts.length % 2 === 1) parts.push(rest)
+  else parts[parts.length - 1] = (parseFloat(parts[parts.length - 1]) + rest).toFixed(1)
+  return parts.join(' ')
+}
+
+// Reveal state for a journey at a year (null year = no scrub → full route).
+// Returns { len, op }, or null when the journey should keep its current state.
+function revealStateFor(journey, jd, year, isActive) {
+  if (year === null) return { len: jd.total, op: jd.baseOpacity }
+  if (!isActive) return null
+  if (year < journey.dateRange[0]) return { len: 0, op: jd.baseOpacity }
+  if (journey.dateRange[1] <= year) return { len: jd.total, op: 0.18 }
+  const wps = jd.wps
+  const nextIdx = wps.findIndex(wp => wp.year > year)
+  let len
+  if (nextIdx === -1) len = jd.total
+  else if (nextIdx === 0) len = 0
+  else {
+    const prevIdx = nextIdx - 1
+    const denom   = wps[nextIdx].year - wps[prevIdx].year
+    const t       = denom > 0 ? Math.max(0, Math.min(1, (year - wps[prevIdx].year) / denom)) : 1
+    len = jd.wpLengths[prevIdx] + t * (jd.wpLengths[nextIdx] - jd.wpLengths[prevIdx])
+  }
+  return { len, op: jd.baseOpacity }
+}
+
+// Apply a reveal state to every segment, casing, and chevron of a journey
+function applyRevealState(jd, revealLen, opacity) {
+  jd.segs.forEach(seg => {
+    const segLen = seg.l1 - seg.l0
+    const vis = Math.max(0, Math.min(segLen, revealLen - seg.l0))
+    const el = d3.select(seg.el)
+    if (seg.dash) el.attr('stroke-dasharray', dashedRevealArray(vis, segLen, seg.dash[0], seg.dash[1]))
+    else el.attr('stroke-dashoffset', segLen - vis)
+    el.attr('stroke-opacity', opacity)
+    if (seg.caseEl) {
+      d3.select(seg.caseEl)
+        .attr('stroke-dashoffset', segLen - vis)
+        .attr('stroke-opacity', opacity)
+    }
+  })
+  jd.chevrons.forEach(c => {
+    d3.select(c.el).attr('opacity',
+      opacity > 0.1 && c.len <= revealLen ? Math.min(0.6, opacity * 0.7) : 0)
+  })
+}
+
 function normalizeProvinceName(rawName) {
   const map = {
     'Asia':                  'asia',
@@ -83,6 +161,13 @@ function applyZoomStyling(mapGEl, k) {
   // instead of k, so zoomed-in lines stay lines rather than ribbons.
   const s = Math.pow(k, 0.6)
   g.selectAll('.journey-line').attr('stroke-width', 2 / s)
+  g.selectAll('.journey-case').attr('stroke-width', 3.6 / s)
+  g.selectAll('.paul-marker-halo').attr('r', 7 / s)
+  g.selectAll('.paul-marker-core').attr('r', 2.8 / s).attr('stroke-width', 0.9 / s)
+  g.selectAll('.route-chevron').each(function () {
+    const d = this.dataset
+    d3.select(this).attr('transform', `translate(${d.x},${d.y}) rotate(${d.a}) scale(${1 / s})`)
+  })
   g.selectAll('.map-graticule').attr('stroke-width', 0.5 / s)
   g.selectAll('.map-borders').attr('stroke-width', 0.7 / s)
   g.selectAll('.map-coast').attr('stroke-width', 0.6 / s)
@@ -289,6 +374,36 @@ export default function MapView({
     return map
   }, [])
 
+  // Mirror of timelineYear for the render effect (which must not re-run per frame)
+  const timelineYearRef = useRef(timelineYear)
+  useEffect(() => { timelineYearRef.current = timelineYear }, [timelineYear])
+  const paulMarkerRef = useRef(null)
+
+  // Sea vs land per journey segment — sampled with spherical point-in-polygon
+  // against the 50m land (always bundled; independent of the lazy 10m swap).
+  // NOTE: use the PRISTINE feature here — rewindRings fixes geoPath *rendering*
+  // of the 10m data but breaks d3.geoContains (verified empirically both ways).
+  const segModes = useMemo(() => {
+    const landTest = topojson.feature(countries50m, countries50m.objects.land)
+    const onLand = pt => landTest.features.some(f => d3.geoContains(f, pt))
+    const modes = {}
+    journeyData.journeys.forEach(j => {
+      const wps = j.waypoints
+        .filter((wp, i) => i === 0 || wp.cityId !== j.waypoints[i - 1].cityId)
+        .filter(wp => cityById[wp.cityId])
+      for (let i = 0; i < wps.length - 1; i++) {
+        const a = cityById[wps[i].cityId].coords
+        const b = cityById[wps[i + 1].cityId].coords
+        let sea = 0
+        ;[0.25, 0.5, 0.75].forEach(t => {
+          if (!onLand([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])) sea++
+        })
+        modes[`${j.id}:${i}`] = sea >= 2 ? 'sea' : 'land'
+      }
+    })
+    return modes
+  }, [cityById])
+
   const visitedIds = useMemo(() => new Set(
     journeyData.provinces.relevantProvinces
       .filter(p => p.paulVisited)
@@ -343,6 +458,8 @@ export default function MapView({
 
     // Halo behind labels — sits between the theme's land and sea tones
     const haloColor = isLight ? '#d3c9ae' : '#0a1220'
+    // Casing under land route segments — background tone lifts routes off the map
+    const caseColor = isLight ? '#f5f0e8' : '#060d1a'
 
     // ── Graticule
     mapG.append('path')
@@ -483,36 +600,91 @@ export default function MapView({
 
       if (waypoints.length < 2) return
 
-      const pathEl = linesG.append('path')
-        .attr('class', 'journey-line')
-        .attr('data-journey', journey.id)
+      // Spine — invisible geometry carrier for arc lengths, sampling, and the Paul marker
+      const spine = linesG.append('path')
+        .attr('class', 'journey-spine')
         .datum(waypoints)
         .attr('d', lineGen)
         .attr('fill', 'none')
-        .attr('stroke', colors.primary)
-        .attr('stroke-width', 2)
-        .attr('stroke-opacity', baseOpacity)
-        .attr('stroke-linecap', 'round')
-        .attr('stroke-linejoin', 'round')
+        .attr('stroke', 'none')
 
-      if (journey.id === 'post-rome') pathEl.attr('stroke-dasharray', '8 5')
-
-      // Precompute arc lengths for progressive reveal
-      const node  = pathEl.node()
+      const node  = spine.node()
       const total = node.getTotalLength()
-      // For dashed post-rome path, dasharray will conflict with reveal — handle in progressive effect
       const wpLengths = waypoints.map(wp => {
         const [px, py] = projection(cityById[wp.cityId].coords)
         return getArcLengthAtPoint(node, px, py, total)
       })
-      lineDataRef.current[journey.id] = { node, total, wps: waypoints, wpLengths, colors, baseOpacity }
 
-      // Prime dasharray for reveal (only when no post-rome dashes; post-rome handled separately)
-      if (journey.id !== 'post-rome') {
-        pathEl
-          .attr('stroke-dasharray', `${total} ${total}`)
-          .attr('stroke-dashoffset', 0)
+      // Visible route: one sampled sub-path per waypoint pair — sea legs dashed,
+      // land legs solid over a casing; post-rome stays dashed throughout (traditional)
+      const caseG = linesG.append('g')
+      const segG  = linesG.append('g')
+      const segs = []
+      const dStrings = []
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        const l0 = wpLengths[i], l1 = wpLengths[i + 1]
+        if (l1 - l0 < 0.5) { dStrings.push(null); continue }
+        const d = samplePath(node, l0, l1)
+        dStrings.push(d)
+        const segLen = l1 - l0
+        const dash = journey.id === 'post-rome'
+          ? [8, 5]
+          : segModes[`${journey.id}:${i}`] === 'sea' ? [4, 3.2] : null
+        let caseEl = null
+        if (!dash) {
+          caseEl = caseG.append('path')
+            .attr('class', 'journey-case')
+            .attr('d', d)
+            .attr('fill', 'none')
+            .attr('stroke', caseColor)
+            .attr('stroke-width', 3.6)
+            .attr('stroke-linecap', 'round')
+            .attr('stroke-linejoin', 'round')
+            .attr('stroke-dasharray', `${segLen} ${segLen}`)
+            .node()
+        }
+        const el = segG.append('path')
+          .attr('class', 'journey-line')
+          .attr('data-journey', journey.id)
+          .attr('d', d)
+          .attr('fill', 'none')
+          .attr('stroke', colors.primary)
+          .attr('stroke-width', 2)
+          .attr('stroke-linecap', dash ? 'butt' : 'round')
+          .attr('stroke-linejoin', 'round')
+        if (!dash) el.attr('stroke-dasharray', `${segLen} ${segLen}`)
+        segs.push({ el: el.node(), caseEl, l0, l1, dash })
       }
+
+      // Direction-of-travel chevrons, skipping the immediate vicinity of stops
+      const chevG = linesG.append('g').attr('pointer-events', 'none')
+      const chevrons = []
+      for (let l = 48; l < total - 20; l += 85) {
+        if (wpLengths.some(wl => Math.abs(wl - l) < 16)) continue
+        const p  = node.getPointAtLength(l)
+        const p2 = node.getPointAtLength(Math.min(total, l + 2))
+        const angle = Math.atan2(p2.y - p.y, p2.x - p.x) * 180 / Math.PI
+        const chev = chevG.append('path')
+          .attr('class', 'route-chevron')
+          .attr('d', 'M -3.4 -2.8 L 2.4 0 L -3.4 2.8')
+          .attr('fill', 'none')
+          .attr('stroke', colors.primary)
+          .attr('stroke-width', 1.2)
+          .attr('stroke-linecap', 'round')
+          .attr('opacity', 0)
+        chev.node().dataset.x = p.x.toFixed(2)
+        chev.node().dataset.y = p.y.toFixed(2)
+        chev.node().dataset.a = angle.toFixed(1)
+        chevrons.push({ el: chev.node(), len: l })
+      }
+
+      const jd = { node, total, wps: waypoints, wpLengths, colors, baseOpacity, segs, chevrons }
+      lineDataRef.current[journey.id] = jd
+
+      // Initial reveal for the current scrub year (or full route when idle)
+      const st = revealStateFor(journey, jd, timelineYearRef.current, isActive)
+        ?? { len: total, op: baseOpacity }
+      applyRevealState(jd, st.len, st.op)
 
       // Invisible per-segment hit targets for distance hover
       if (isActive && baseOpacity > 0) {
@@ -522,9 +694,8 @@ export default function MapView({
           if (!cityA || !cityB) continue
           const segWps = [waypoints[i], waypoints[i + 1]]
           linesG.append('path')
-            .datum(segWps)
             .attr('class', 'seg-hit')
-            .attr('d', lineGen)
+            .attr('d', dStrings[i] ?? lineGen(segWps))
             .attr('fill', 'none')
             .attr('stroke', 'transparent')
             .attr('stroke-width', 12)
@@ -769,9 +940,40 @@ export default function MapView({
       }
     })
 
+    // ── Paul marker — comet head at the reveal front (positioned by the
+    // progressive effect; initial position replayed here for re-renders mid-scrub)
+    const markerG = mapG.append('g')
+      .attr('class', 'paul-marker')
+      .attr('display', 'none')
+      .attr('pointer-events', 'none')
+    markerG.append('circle')
+      .attr('class', 'paul-marker-halo')
+      .attr('r', 7).attr('fill', '#e9c86c').attr('fill-opacity', 0.22)
+    markerG.append('circle')
+      .attr('class', 'paul-marker-core')
+      .attr('r', 2.8).attr('fill', '#e9c86c')
+      .attr('stroke', '#060d1a').attr('stroke-width', 0.9)
+    paulMarkerRef.current = markerG.node()
+
+    const yearNow = timelineYearRef.current
+    if (yearNow !== null) {
+      for (const journey of journeyData.journeys) {
+        const jd2 = lineDataRef.current[journey.id]
+        if (!jd2 || !activeJourneys.has(journey.id)) continue
+        if (yearNow >= journey.dateRange[0] && yearNow < journey.dateRange[1]) {
+          const stM = revealStateFor(journey, jd2, yearNow, true)
+          if (stM) {
+            const p = jd2.node.getPointAtLength(stM.len)
+            markerG.attr('display', null).attr('transform', `translate(${p.x},${p.y})`)
+          }
+          break
+        }
+      }
+    }
+
     applyZoomStyling(mapGRef.current, kRef.current)
 
-  }, [projection, pathGen, land, borders, provincesGeo, showProvinces, activeJourneys, selectedBookId, cityById, visitedIds, lineGen, theme, isLight])
+  }, [projection, pathGen, land, borders, provincesGeo, showProvinces, activeJourneys, selectedBookId, cityById, visitedIds, lineGen, theme, isLight, segModes])
 
   // ── Progressive reveal — synchronized to timelineYear ─────────────────
   useEffect(() => {
@@ -803,68 +1005,29 @@ export default function MapView({
       d3.select(this).attr('fill-opacity', reached ? full : full * 0.2)
     })
 
-    // ── Journey line dashoffset
+    // ── Journey line reveal (per-segment: solid legs via dashoffset,
+    // dashed sea/post-rome legs via constructed dasharray)
+    let paulPos = null
     journeyData.journeys.forEach(journey => {
-      const data = lineDataRef.current[journey.id]
-      if (!data) return
-      const { node, total, wps, wpLengths, baseOpacity } = data
+      const jd = lineDataRef.current[journey.id]
+      if (!jd) return
+      const isActive = activeJourneys.has(journey.id)
+      const st = revealStateFor(journey, jd, timelineYear, isActive)
+      if (st) applyRevealState(jd, st.len, st.op)
 
-      if (timelineYear === null) {
-        // Full line — restore normal dasharray and opacity
-        if (journey.id !== 'post-rome') {
-          d3.select(node)
-            .attr('stroke-dasharray', `${total} ${total}`)
-            .attr('stroke-dashoffset', 0)
-        }
-        d3.select(node).attr('stroke-opacity', activeJourneys.has(journey.id) ? baseOpacity : 0)
-        return
-      }
-
-      if (!activeJourneys.has(journey.id)) return
-
-      if (timelineYear < journey.dateRange[0]) {
-        if (journey.id !== 'post-rome')
-          d3.select(node).attr('stroke-dashoffset', total)
-        else
-          d3.select(node).attr('stroke-opacity', 0)
-        return
-      }
-
-      // Completed journey — show full at reduced opacity
-      if (journey.dateRange[1] <= timelineYear) {
-        if (journey.id !== 'post-rome') {
-          d3.select(node)
-            .attr('stroke-dashoffset', 0)
-            .attr('stroke-opacity', 0.18)
-        } else {
-          d3.select(node).attr('stroke-opacity', 0.18)
-        }
-        return
-      }
-
-      // Interpolate arc length for current year
-      const nextIdx = wps.findIndex(wp => wp.year > timelineYear)
-      let len
-      if (nextIdx === -1) {
-        len = total
-      } else if (nextIdx === 0) {
-        len = 0
-      } else {
-        const prevIdx = nextIdx - 1
-        const denom   = wps[nextIdx].year - wps[prevIdx].year
-        const t       = denom > 0 ? Math.max(0, Math.min(1, (timelineYear - wps[prevIdx].year) / denom)) : 1
-        len = wpLengths[prevIdx] + t * (wpLengths[nextIdx] - wpLengths[prevIdx])
-      }
-
-      if (journey.id !== 'post-rome') {
-        d3.select(node)
-          .attr('stroke-dashoffset', Math.max(0, total - len))
-          .attr('stroke-opacity', baseOpacity * (activeJourneys.has(journey.id) ? 1 : 0.22))
-      } else {
-        // post-rome uses stroke-dasharray for the dash style; clip via opacity only
-        d3.select(node).attr('stroke-opacity', baseOpacity * 0.9)
+      // Paul rides the reveal front of the journey containing the current year
+      if (st && isActive && timelineYear !== null &&
+          timelineYear >= journey.dateRange[0] && timelineYear < journey.dateRange[1]) {
+        const p = jd.node.getPointAtLength(st.len)
+        paulPos = [p.x, p.y]
       }
     })
+
+    if (paulMarkerRef.current) {
+      const m = d3.select(paulMarkerRef.current)
+      if (paulPos) m.attr('display', null).attr('transform', `translate(${paulPos[0]},${paulPos[1]})`)
+      else m.attr('display', 'none')
+    }
 
     // ── Map pan to follow Paul during play (throttled)
     if (isPlaying && timelineYear !== null) {

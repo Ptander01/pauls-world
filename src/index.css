@@ -398,6 +398,19 @@ body {
   cursor: grabbing;
 }
 
+/* ── Paul marker (map reveal front) ─────────────────── */
+
+.paul-marker-halo {
+  animation: paulHalo 1.8s ease-in-out infinite;
+}
+@keyframes paulHalo {
+  0%, 100% { fill-opacity: 0.14; }
+  50%      { fill-opacity: 0.32; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paul-marker-halo { animation: none; }
+}
+
 /* ── Story layer (map overlay) ──────────────────────── */
 
 .story-btn {
