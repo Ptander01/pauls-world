@@ -398,6 +398,142 @@ body {
   cursor: grabbing;
 }
 
+/* ── Story layer (map overlay) ──────────────────────── */
+
+.story-btn {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 18px;
+  background: var(--pill-bg);
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 22px;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 15;
+  box-shadow: var(--lip-out), 0 0 18px rgba(201, 168, 76, 0.12);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.story-btn:hover {
+  box-shadow: var(--lip-hover), 0 0 26px rgba(201, 168, 76, 0.22);
+  transform: translateX(-50%) translateY(-1px);
+}
+.story-btn__sub {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+}
+
+.story-caption {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 32px));
+  padding: 12px 16px 10px;
+  background: linear-gradient(160deg, rgba(20, 26, 46, 0.92) 0%, rgba(12, 16, 30, 0.94) 100%);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 32px rgba(0, 0, 0, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.35);
+  z-index: 15;
+  pointer-events: none;
+  animation: storyBeatIn 0.45s ease-out;
+}
+@keyframes storyBeatIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-caption { animation: none; }
+}
+
+.story-caption__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.story-caption__badge {
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 2px 7px;
+  opacity: 0.85;
+}
+.story-caption__year {
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--accent);
+}
+.story-caption__city {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 1px;
+  color: var(--accent-lt);
+}
+.story-caption__note {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--cream);
+  opacity: 0.92;
+  margin-top: 2px;
+}
+.story-caption__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 6px;
+}
+.story-caption__ref {
+  font-family: var(--font-display);
+  font-size: 8.5px;
+  letter-spacing: 1px;
+  color: var(--accent-dim);
+}
+.story-caption__writing {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  color: #4a7c6f;
+}
+
+[data-theme="light"] .story-caption {
+  background: linear-gradient(160deg, rgba(240, 234, 222, 0.94) 0%, rgba(228, 221, 208, 0.95) 100%);
+  border-color: rgba(160, 120, 40, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 32px rgba(0, 0, 0, 0.1),
+    0 3px 8px rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .story-btn {
+  background: linear-gradient(150deg, #e8e2d4 0%, #ddd7c8 50%, #d4cdbf 100%);
+  border-color: rgba(160, 120, 40, 0.45);
+  box-shadow:
+    -1px -1px 3px rgba(255, 255, 255, 0.65),
+     1px  1px 5px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 18px rgba(160, 120, 40, 0.1);
+}
+
 /* ── Timeline bar ───────────────────────────────────── */
 
 /* 4-state books nav — dots + Next button above the timeline card */

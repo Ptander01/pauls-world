@@ -4,6 +4,7 @@ import FilterPanel from './components/FilterPanel'
 import TimelineBar from './components/TimelineBar'
 import BookDetailPanel from './components/BookDetailPanel'
 import PlayControls from './components/PlayControls'
+import StoryLayer from './components/StoryLayer'
 import SearchBar from './components/SearchBar'
 import ThemeToggle from './components/ThemeToggle'
 import journeyData from './data/pauline-journeys-data.json'
@@ -198,6 +199,14 @@ export default function App() {
     setTimelineYear(year)
   }
 
+  // Story mode entry — exit detail/book focus and play the full arc from AD 44
+  function handleStoryPlay() {
+    setDetailJourneyId(null)
+    detailJourneyIdRef.current = null // handlePlay reads the ref synchronously
+    setSelectedBookId(null)
+    handlePlay()
+  }
+
   // Reset church tracks when drilling into a different journey
   useEffect(() => {
     setActiveChurchTracks(new Set())
@@ -258,6 +267,10 @@ export default function App() {
             isPlaying={isPlaying}
             detailJourneyId={detailJourneyId}
             theme={theme}
+          />
+          <StoryLayer
+            timelineYear={timelineYear}
+            onStoryPlay={handleStoryPlay}
           />
           <BookDetailPanel
             book={selectedBook}

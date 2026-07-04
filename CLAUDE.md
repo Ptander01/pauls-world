@@ -29,6 +29,14 @@ App.jsx                     — root state: activeJourneys, selectedBookId, sele
 └── .map-container (div)    — position:relative; contains all overlays + map
     ├── FilterPanel.jsx     — floating overlay top-left; journey toggles + book pill selector
     ├── MapView.jsx         — D3 SVG map; fills map-container
+    ├── StoryLayer.jsx      — bottom-center map overlay: "▶ Paul's Story" entry button when
+    │                         timelineYear is null, else a glass caption card tracking Paul's
+    │                         current waypoint (journey badge, city, note, ref, "✍ books being
+    │                         written"). Beats = all waypoints flattened+sorted (module-level
+    │                         BEATS); INTRO_BEAT covers AD 44 until the first waypoint. Card
+    │                         remounts per beat (React key) to replay the storyBeatIn CSS
+    │                         animation. onStoryPlay → App.handleStoryPlay (clears detail/book
+    │                         focus incl. detailJourneyIdRef, then handlePlay from AD 44)
     └── BookDetailPanel.jsx — slide-in panel from right when a book is selected
 TimelineBar.jsx             — D3 SVG timeline below the map (sibling of .app-body);
                               clicking a capsule bar enters detail mode (detailJourneyId)
