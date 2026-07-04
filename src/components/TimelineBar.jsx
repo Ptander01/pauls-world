@@ -184,6 +184,13 @@ const BOOK_CHURCH = {
 
 const cityById = Object.fromEntries(journeyData.cities.map(c => [c.id, c]))
 
+// Churches Paul did not plant — story row shows this note instead of a planted→letter bracket
+const ORIGIN_NOTES = {
+  rome:     'Planted by others — Paul had not yet visited · Rom 1:13',
+  colossae: 'Planted by Epaphras — Paul never visited · Col 1:7, 2:1',
+  crete:    'Origin unrecorded — Titus appointed elders · Titus 1:5',
+}
+
 function stopR(days) {
   if (!days || days < 7)  return 4
   if (days < 30)  return 5.5
@@ -223,6 +230,10 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
   // Book letter marker
   const bookMid = (selectedBook.dateRange[0] + selectedBook.dateRange[1]) / 2
 
+  // Planted → letter gap bracket (or origin note when Paul didn't plant the church)
+  const founding   = churchEvts.find(e => e.type === 'founding')
+  const originNote = !founding ? ORIGIN_NOTES[churchId] : null
+
   // Thread line spans all touchpoints
   const allYears = [...visits.map(v => v.year), ...churchEvts.map(e => e.year), selectedBook.dateRange[0], selectedBook.dateRange[1]]
   const threadX1 = xScale(Math.min(...allYears))
@@ -248,6 +259,31 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
       {/* Thread line */}
       <line x1={threadX1} y1={TRACK_Y} x2={threadX2} y2={TRACK_Y}
         stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.18} strokeDasharray="4 4" />
+
+      {/* Planted → letter gap bracket */}
+      {founding && bookMid > founding.year && (() => {
+        const xF  = xScale(founding.year)
+        const xL  = xScale(bookMid)
+        const gap = bookMid - founding.year
+        const gapLabel = gap < 1 ? 'within the year' : `~${Math.round(gap)} yrs later`
+        const BR_Y = 9
+        return (
+          <g pointerEvents="none">
+            <path d={`M ${xF} ${BR_Y + 4} V ${BR_Y} H ${xL} V ${BR_Y + 4}`}
+              fill="none" stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.35} />
+            <text x={(xF + xL) / 2} y={BR_Y - 2.5} textAnchor="middle"
+              fontFamily="Cormorant Garamond, serif" fontStyle="italic" fontSize={7.5}
+              fill="#c9a84c" fillOpacity={0.85}
+            >planted AD {Math.round(founding.year)} · letter {gapLabel}</text>
+          </g>
+        )
+      })()}
+      {originNote && (
+        <text x={clamp((threadX1 + threadX2) / 2, 200, TW - 200)} y={6.5} textAnchor="middle"
+          fontFamily="Cormorant Garamond, serif" fontStyle="italic" fontSize={7.5}
+          fill="#4A7C6F" fillOpacity={0.9} pointerEvents="none"
+        >{originNote}</text>
+      )}
 
       {/* Journey visit markers */}
       {visits.map((v, i) => {

@@ -1945,6 +1945,17 @@
       "sublabel": "Paul final letter; last known words",
       "type": "letter-received",
       "ref": "2 Ti 4:9"
+    },
+    {
+      "id": "thessalonica-founded",
+      "churchId": "thessalonica",
+      "cityId": "thessalonica",
+      "year": 50.1,
+      "journeyId": "journey-2",
+      "label": "Church Founded",
+      "sublabel": "Jason's house; some Jews, many devout Greeks, leading women",
+      "type": "founding",
+      "ref": "Acts 17:1–9"
     }
   ],
   "provinces": {
