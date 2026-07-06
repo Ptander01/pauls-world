@@ -107,17 +107,17 @@ function getP(b, s) {
   if (s <= 1) {
     const dy = b.row === 0 ? FAY : FBY
     return { x: cx - FDR, y: dy - FDR, w: 2 * FDR, h: 2 * FDR, rx: FDR,
-             fo: s ? 0.28 : 0, so: s ? 0.88 : 0, sto: s ? 0.55 : 0 }
+             fo: s ? 0.5 : 0, so: s ? 1 : 0, sto: s ? 0.7 : 0 }
   }
   if (s === 2) {
     const rw = Math.max(xScale(b.dateRange[1]) - xScale(b.dateRange[0]), 28)
     const cy = b.row === 0 ? CR0_S2 : CR1_S2
     const off = S2_OFFSETS[b.id] ?? 0
-    return { x: cx - rw / 2 + off, y: cy, w: rw, h: CH_S2, rx: 4, fo: 0.15, so: 0.55, sto: 0 }
+    return { x: cx - rw / 2 + off, y: cy, w: rw, h: CH_S2, rx: 4, fo: 0.2, so: 0.8, sto: 0 }
   }
   const lay = S3_CHIPS[b.id]
   const cy  = b.row === 0 ? CR0_S3 : CR1_S3
-  return { x: lay.cx - lay.w / 2, y: cy, w: lay.w, h: CH_S3, rx: 6, fo: 0.15, so: 0.6, sto: 0 }
+  return { x: lay.cx - lay.w / 2, y: cy, w: lay.w, h: CH_S3, rx: 6, fo: 0.2, so: 0.85, sto: 0 }
 }
 
 // L-shaped pole routing — no diagonals; displaced chips route via ROUTE_Y
@@ -258,7 +258,8 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
 
       {/* Thread line */}
       <line x1={threadX1} y1={TRACK_Y} x2={threadX2} y2={TRACK_Y}
-        stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.18} strokeDasharray="4 4" />
+        stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.18} strokeDasharray="4 4"
+        vectorEffect="non-scaling-stroke" />
 
       {/* Planted → letter gap bracket */}
       {founding && bookMid > founding.year && (() => {
@@ -270,7 +271,8 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
         return (
           <g pointerEvents="none">
             <path d={`M ${xF} ${BR_Y + 4} V ${BR_Y} H ${xL} V ${BR_Y + 4}`}
-              fill="none" stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.35} />
+              fill="none" stroke="#c9a84c" strokeWidth={0.8} strokeOpacity={0.35}
+              vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" />
             <text x={(xF + xL) / 2} y={BR_Y - 2.5} textAnchor="middle"
               fontFamily="Cormorant Garamond, serif" fontStyle="italic" fontSize={7.5}
               fill="#c9a84c" fillOpacity={0.85}
@@ -300,6 +302,7 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
             <circle cx={x} cy={TRACK_Y} r={isH ? r + 2 : r}
               fill={v.color} fillOpacity={isH ? 0.55 : 0.3}
               stroke={v.color} strokeWidth={1.2} strokeOpacity={isH ? 1 : 0.7}
+              vectorEffect="non-scaling-stroke"
             />
             <text x={x} y={above ? ABOVE_Y : BELOW_Y}
               textAnchor="middle" fontFamily="Cinzel, serif" fontSize={6.5} letterSpacing={0.5}
@@ -325,6 +328,7 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
               points={`${x},${TRACK_Y-sz} ${x+sz},${TRACK_Y} ${x},${TRACK_Y+sz} ${x-sz},${TRACK_Y}`}
               fill={col} fillOpacity={isH ? 0.5 : 0.25}
               stroke={col} strokeWidth={1} strokeOpacity={isH ? 1 : 0.7}
+              vectorEffect="non-scaling-stroke"
             />
             {isH && (
               <text x={x} y={i % 2 === 0 ? ABOVE_Y : BELOW_Y}
@@ -347,6 +351,7 @@ function CityStoryRow({ selectedBook, onJourneyDrill }) {
               points={`${x},${TRACK_Y-sz} ${x+sz},${TRACK_Y} ${x},${TRACK_Y+sz} ${x-sz},${TRACK_Y}`}
               fill="#c9a84c" fillOpacity={0.55}
               stroke="#c9a84c" strokeWidth={1.5} strokeOpacity={0.9}
+              vectorEffect="non-scaling-stroke"
             />
             <text x={x} y={ABOVE_Y - 2}
               textAnchor="middle" fontFamily="Cinzel, serif" fontSize={8} letterSpacing={0.5}
@@ -515,6 +520,8 @@ export default function TimelineBar({
       .attr('y1', 0).attr('y2', TH)
       .attr('stroke', '#c9a84c').attr('stroke-width', 1)
       .attr('stroke-dasharray', '4 3').attr('stroke-opacity', 0.7)
+      .attr('vector-effect', 'non-scaling-stroke')
+      .attr('shape-rendering', 'crispEdges')
       .attr('pointer-events', 'none')
 
     const tip = scrubG.append('g').attr('class', 's-tip').attr('pointer-events', 'none')
@@ -606,6 +613,7 @@ export default function TimelineBar({
           .attr('stroke', bar.color).attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '5 3')
           .attr('stroke-opacity', active ? 0.15 : 0.08)
+          .attr('vector-effect', 'non-scaling-stroke')
         // Clipped foreground
         barsG.append('rect')
           .attr('x', x1).attr('y', BY).attr('width', x2 - x1).attr('height', BH).attr('rx', 5)
@@ -613,6 +621,7 @@ export default function TimelineBar({
           .attr('stroke', bar.color).attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '5 3')
           .attr('stroke-opacity', active ? 0.65 : 0.18)
+          .attr('vector-effect', 'non-scaling-stroke')
           .attr('clip-path', `url(#pbw-bar-clip-${bar.id})`)
       } else {
         // Background track
@@ -647,12 +656,16 @@ export default function TimelineBar({
     g.append('line')
       .attr('x1', 74).attr('x2', TW - 48).attr('y1', AXIS_Y).attr('y2', AXIS_Y)
       .attr('stroke', '#232a42').attr('stroke-width', 1)
+      .attr('vector-effect', 'non-scaling-stroke')
+      .attr('shape-rendering', 'crispEdges')
 
     YEAR_TICKS.forEach(yr => {
       const x = xScale(yr)
       g.append('line')
         .attr('x1', x).attr('x2', x).attr('y1', AXIS_Y - 3).attr('y2', AXIS_Y + 3)
         .attr('stroke', '#2e3858').attr('stroke-width', 1)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .attr('shape-rendering', 'crispEdges')
       g.append('text')
         .attr('x', x).attr('y', AXIS_Y - 8)
         .attr('text-anchor', 'middle')
@@ -676,6 +689,8 @@ export default function TimelineBar({
     g.append('line')
       .attr('x1', 4).attr('x2', 76).attr('y1', SEP).attr('y2', SEP)
       .attr('stroke', '#2e3a58').attr('stroke-width', 1)
+      .attr('vector-effect', 'non-scaling-stroke')
+      .attr('shape-rendering', 'crispEdges')
     ;[
       { label: 'TIMELINE', cy: (BY + AXIS_Y) / 2,   cls: 'tl-lbl-timeline' },
       { label: 'BOOKS',    cy: bs === 3 ? 150 : 110, cls: 'tl-lbl-books' },
@@ -711,6 +726,8 @@ export default function TimelineBar({
       .attr('class', 'tl-anchor-line')
       .attr('x1', 74).attr('x2', TW - 48).attr('y1', SEP).attr('y2', SEP)
       .attr('stroke', '#232a42').attr('stroke-width', 1)
+      .attr('vector-effect', 'non-scaling-stroke')
+      .attr('shape-rendering', 'crispEdges')
       .attr('opacity', bs === 3 ? 1 : 0)
       .attr('pointer-events', 'none')
 
@@ -744,20 +761,23 @@ export default function TimelineBar({
       if (initialTransform) bookG.attr('transform', initialTransform)
       if (alreadyRevealed && currentYear !== null) revealedBooks.current.add(b.id)
 
-      // State-3 flag pole + date anchor dot
+      // State-3 flag pole + date anchor dot — non-scaling strokes stay crisp
+      // under the stretched viewBox; poles are pure V/H so crispEdges is safe
       bookG.append('path')
         .attr('data-pole', b.id)
         .attr('d', polePath(b))
         .attr('fill', 'none')
-        .attr('stroke', col).attr('stroke-width', 1)
-        .attr('stroke-opacity', bs === 3 ? 0.55 : 0)
+        .attr('stroke', col).attr('stroke-width', 1.2)
+        .attr('stroke-opacity', bs === 3 ? 0.75 : 0)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .attr('shape-rendering', 'crispEdges')
         .attr('mask', 'url(#pbw-pole-mask)')
         .attr('pointer-events', 'none')
       bookG.append('circle')
         .attr('data-adot', b.id)
-        .attr('cx', cx).attr('cy', SEP).attr('r', 2)
+        .attr('cx', cx).attr('cy', SEP).attr('r', 2.4)
         .attr('fill', col)
-        .attr('fill-opacity', bs === 3 ? 0.8 : 0)
+        .attr('fill-opacity', bs === 3 ? 0.95 : 0)
         .attr('pointer-events', 'none')
 
       // Flag stem — connects the state-0/1 dot to the journey bar band
@@ -768,6 +788,20 @@ export default function TimelineBar({
         .attr('y2', b.row === 0 ? BY : FBY - FDR)
         .attr('stroke', col).attr('stroke-width', 1)
         .attr('stroke-opacity', p.sto)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .attr('shape-rendering', 'crispEdges')
+        .attr('pointer-events', 'none')
+
+      // Flag ring — echoes the state-nav sequencer dots (visible in state 1)
+      bookG.append('circle')
+        .attr('data-ring', b.id)
+        .attr('cx', cx).attr('cy', b.row === 0 ? FAY : FBY)
+        .attr('r', FDR + 2.4)
+        .attr('fill', 'none')
+        .attr('stroke', col)
+        .attr('stroke-width', 1)
+        .attr('stroke-opacity', bs === 1 ? 0.45 : 0)
+        .attr('vector-effect', 'non-scaling-stroke')
         .attr('pointer-events', 'none')
 
       // Chip body — one rounded rect morphs dot → compact chip → full chip
@@ -779,8 +813,9 @@ export default function TimelineBar({
         .attr('fill', col)
         .attr('fill-opacity', sel ? Math.min(p.fo + 0.2, 1) : p.fo)
         .attr('stroke', sel ? '#e9c86c' : col)
-        .attr('stroke-width', sel ? 1.6 : 1.1)
+        .attr('stroke-width', sel ? 1.8 : 1.25)
         .attr('stroke-opacity', sel ? Math.min(p.so + 0.3, 1) : p.so)
+        .attr('vector-effect', 'non-scaling-stroke')
         .attr('filter', sel ? 'url(#pbw-chip-glow)' : 'url(#pbw-chip-shadow)')
         .style('cursor', 'pointer')
         .style('pointer-events', bs === 0 ? 'none' : 'all')
@@ -866,6 +901,7 @@ export default function TimelineBar({
         const x = cx - r, y = dy - r, wh = 2 * r
         g.select(`[data-chip="${b.id}"]`).attr('x', x).attr('y', y).attr('width', wh).attr('height', wh).attr('rx', r)
         g.select(`[data-sheen="${b.id}"]`).attr('x', x).attr('y', y).attr('width', wh).attr('height', wh).attr('rx', r)
+        g.select(`[data-ring="${b.id}"]`).attr('r', r + 2.4)
       })
     })
     svgSel.on('mouseleave.dock', () => {
@@ -874,6 +910,7 @@ export default function TimelineBar({
         const q = getP(b, 1)
         g.select(`[data-chip="${b.id}"]`).attr('x', q.x).attr('y', q.y).attr('width', q.w).attr('height', q.h).attr('rx', q.rx)
         g.select(`[data-sheen="${b.id}"]`).attr('x', q.x).attr('y', q.y).attr('width', q.w).attr('height', q.h).attr('rx', q.rx)
+        g.select(`[data-ring="${b.id}"]`).attr('r', FDR + 2.4)
       })
     })
 
@@ -924,10 +961,12 @@ export default function TimelineBar({
 
       bookG.select('[data-stem]').transition('bookState').duration(dur).ease(ease)
         .attr('stroke-opacity', p.sto)
+      bookG.select('[data-ring]').transition('bookState').duration(dur).ease(ease)
+        .attr('stroke-opacity', bookState === 1 ? 0.45 : 0)
       bookG.select('[data-pole]').transition('bookState').duration(dur).ease(ease)
-        .attr('stroke-opacity', bookState === 3 ? 0.55 : 0)
+        .attr('stroke-opacity', bookState === 3 ? 0.75 : 0)
       bookG.select('[data-adot]').transition('bookState').duration(dur).ease(ease)
-        .attr('fill-opacity', bookState === 3 ? 0.8 : 0)
+        .attr('fill-opacity', bookState === 3 ? 0.95 : 0)
 
       const aa = abbrevAttrs(b, bookState)
       bookG.select('[data-abbrev]').transition('bookState').duration(dur).ease(ease)

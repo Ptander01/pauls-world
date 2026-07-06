@@ -147,6 +147,8 @@ Left-side section labels "TIMELINE" (centered over the bars/axis band) and "BOOK
 
 Chip hover shows `name · date` in a pill tooltip (flips below the chip when the state's viewBox would clip it above). Chips are click targets for `onBookClick`; selection styling = gold stroke `#e9c86c` + boosted fill/stroke opacity.
 
+**Crispness:** the overview SVG stretches (`preserveAspectRatio="none"`), so all stroked elements (chips, stems, poles, rings, axis/ticks/separators, scrubber, story-row markers) carry `vector-effect: non-scaling-stroke` — stroke widths are true screen px. Axis-aligned lines (axis, ticks, SEP, anchor line, stems, poles) add `shape-rendering: crispEdges`. State-1 flag dots have a `data-ring` circle (r `FDR+2.4`, journey color at 0.45) echoing the `.tl-state-dot` sequencer look; rings track dock magnification and fade out in other states.
+
 ### Timeline detail mode
 
 Activated by clicking any capsule bar in the overview (`data-bar-hit` hit area). TimelineBar hides the overview SVG and renders `.tl-detail` in its place. `.timeline-bar--detail` expands the panel height to 320px.
