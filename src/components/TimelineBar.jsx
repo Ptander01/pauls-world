@@ -27,8 +27,11 @@ const VIEWBOXES = [
   [0, 0, TW, 150],   // state 2 — both rows, compact chips (chips end ~y=133)
   [0, 75, TW, 123],  // state 3 — books only
 ]
-const STATE_HEIGHTS    = [96, 96, 170, 148]   // px card heights, ≥900px viewports
-const STATE_HEIGHTS_SM = [70, 70, 128, 108]   // px card heights, <900px viewports
+// Card height tracks the viewBox aspect (height = width × vbH/1200) so the
+// overview scales uniformly — no funhouse stretch on the lone timeline.
+// Clamps keep it usable at extreme window widths (mild stretch only there).
+const H_MIN = [64, 64, 104, 96]
+const H_MAX = [112, 112, 190, 160]
 const STATE_LABELS  = ['Journeys', 'Letters Appear', 'Journeys + Letters', 'The Letters']
 
 const xScale = d3.scaleLinear().domain([44, 68]).range([80, 1140])
@@ -413,15 +416,18 @@ export default function TimelineBar({
   const bookStateInit     = useRef(false)
   const selectedBookIdRef = useRef(selectedBookId)
 
-  // Compact card heights on narrow viewports (matches the 900px CSS breakpoint)
-  const [isNarrow, setIsNarrow] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches
-  )
+  // Card width drives per-state height (aspect-locked to the viewBox)
+  const rootRef = useRef(null)
+  const [tlWidth, setTlWidth] = useState(1200)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 900px)')
-    const onChange = e => setIsNarrow(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+    const el = rootRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect?.width
+      if (w) setTlWidth(w) // React bails out when the width is unchanged
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
 
   useEffect(() => {
@@ -1014,12 +1020,18 @@ export default function TimelineBar({
     window.addEventListener('mouseup', onUp)
   }, [])
 
+  // Aspect-locked height: uniform x/y scale for the overview SVG, clamped
+  const autoHeight = Math.round(Math.max(
+    H_MIN[bookState],
+    Math.min(H_MAX[bookState], tlWidth * VIEWBOXES[bookState][3] / TW)
+  ))
+
   const barStyle = tlHeight
     ? { height: tlHeight }
     : detailJourneyId
       ? undefined
       : {
-          height: (isNarrow ? STATE_HEIGHTS_SM : STATE_HEIGHTS)[bookState] + (showStoryRow ? 68 : 0),
+          height: autoHeight + (showStoryRow ? 68 : 0),
           transition: 'height 0.65s cubic-bezier(0.65, 0, 0.35, 1)',
         }
 
@@ -1048,6 +1060,7 @@ export default function TimelineBar({
         </div>
       )}
     <div
+      ref={rootRef}
       className={`timeline-bar${detailJourneyId ? ' timeline-bar--detail' : ''}${showStoryRow ? ' timeline-bar--story' : ''}`}
       style={barStyle}
       onClick={handleBarClick}
