@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import MapView from './components/MapView'
 import HeroBackdrop from './components/HeroBackdrop'
+import LandingSplash from './components/LandingSplash'
 import FilterPanel from './components/FilterPanel'
 import TimelineBar from './components/TimelineBar'
 import BookDetailPanel from './components/BookDetailPanel'
@@ -36,6 +37,7 @@ export default function App() {
   const [detailJourneyId, setDetailJourneyId]       = useState(null)
   const [activeChurchTracks, setActiveChurchTracks] = useState(new Set())
   const [theme, setTheme] = useState(() => localStorage.getItem('pw-theme') || 'dark')
+  const [showSplash, setShowSplash] = useState(true)
   const panToCityRef = useRef(null)
 
   useEffect(() => {
@@ -225,62 +227,64 @@ export default function App() {
   useEffect(() => () => stopFrame(), [])
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Paul's World</h1>
-        <SearchBar
-          onCitySelect={cityId => {
-            setHoveredCityId(cityId)
-            panToCityRef.current?.(cityId)
-          }}
-          onBookSelect={bookId => {
-            setSelectedBookId(bookId)
-            setViewMode('books')
-          }}
-        />
-        <ThemeToggle
-          theme={theme}
-          onToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-        />
-      </header>
-      <div className="app-body">
-        <div className="map-container">
-          <FilterPanel
-            activeJourneys={activeJourneys}
-            selectedBookId={selectedBookId}
-            viewMode={viewMode}
-            showProvinces={showProvinces}
-            onJourneyToggle={handleJourneyToggle}
-            onBookSelect={handleBookSelect}
-            onViewModeChange={setViewMode}
-            onShowProvincesChange={setShowProvinces}
+    <>
+      <LandingSplash open={showSplash} onEnter={() => setShowSplash(false)} />
+      <div className="app">
+        <header className="app-header">
+          <h1>Paul's World</h1>
+          <SearchBar
+            onCitySelect={cityId => {
+              setHoveredCityId(cityId)
+              panToCityRef.current?.(cityId)
+            }}
+            onBookSelect={bookId => {
+              setSelectedBookId(bookId)
+              setViewMode('books')
+            }}
           />
-          <MapView
-            activeJourneys={activeJourneys}
-            selectedBookId={selectedBookId}
-            timelineYear={timelineYear}
-            hoveredCityId={hoveredCityId}
-            onMapReady={panFn => { panToCityRef.current = panFn }}
-            onCityHover={setHoveredCityId}
-            onCityClick={() => {}}
-            provincesGeo={provincesGeo}
-            showProvinces={showProvinces}
-            isPlaying={isPlaying}
-            detailJourneyId={detailJourneyId}
+          <ThemeToggle
             theme={theme}
+            onToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
           />
-          <HeroBackdrop
-            active={activeJourneys.size === 0 && !selectedBookId && timelineYear === null}
-          />
-          <StoryLayer
-            timelineYear={timelineYear}
-            onStoryPlay={handleStoryPlay}
-          />
-          <BookDetailPanel
-            book={selectedBook}
-            onClose={() => handleBookSelect(null)}
-          />
-        </div>
+        </header>
+        <div className="app-body">
+          <div className="map-container">
+            <FilterPanel
+              activeJourneys={activeJourneys}
+              selectedBookId={selectedBookId}
+              viewMode={viewMode}
+              showProvinces={showProvinces}
+              onJourneyToggle={handleJourneyToggle}
+              onBookSelect={handleBookSelect}
+              onViewModeChange={setViewMode}
+              onShowProvincesChange={setShowProvinces}
+            />
+            <MapView
+              activeJourneys={activeJourneys}
+              selectedBookId={selectedBookId}
+              timelineYear={timelineYear}
+              hoveredCityId={hoveredCityId}
+              onMapReady={panFn => { panToCityRef.current = panFn }}
+              onCityHover={setHoveredCityId}
+              onCityClick={() => {}}
+              provincesGeo={provincesGeo}
+              showProvinces={showProvinces}
+              isPlaying={isPlaying}
+              detailJourneyId={detailJourneyId}
+              theme={theme}
+            />
+            <HeroBackdrop
+              active={activeJourneys.size === 0 && !selectedBookId && timelineYear === null}
+            />
+            <StoryLayer
+              timelineYear={timelineYear}
+              onStoryPlay={handleStoryPlay}
+            />
+            <BookDetailPanel
+              book={selectedBook}
+              onClose={() => handleBookSelect(null)}
+            />
+          </div>
       </div>
       <TimelineBar
         activeJourneys={activeJourneys}
@@ -307,5 +311,6 @@ export default function App() {
         onSpeedChange={handleSpeedChange}
       />
     </div>
+    </>
   )
 }

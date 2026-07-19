@@ -25,10 +25,23 @@ Key dependencies: `d3` v7, `topojson-client`, `world-atlas` (Natural Earth 50m l
 App.jsx                     — root state: activeJourneys, selectedBookId, selectedBook,
                               viewMode, timelineYear, hoveredCityId, provincesGeo,
                               showProvinces, isPlaying, playSpeed, detailJourneyId,
-                              activeChurchTracks
+                              activeChurchTracks, showSplash
+├── LandingSplash.jsx        — full-viewport (position:fixed, z-index 1000) title card shown
+│                             on load; always mounted, hidden via opacity+pointer-events
+│                             (`.landing-splash--hidden`) matching BookDetailPanel's pattern.
+│                             Cycles the same 3 hero images as HeroBackdrop (different order/
+│                             reuses .hero-layer/.hero-scrim classes) behind a centered glass
+│                             card: eyebrow label, "Paul's World" title, subtitle, a Greek
+│                             verse (Acts 9:4, the Damascus road), and an Enter button that
+│                             calls onEnter → setShowSplash(false). One-time per page load
+│                             (no localStorage persistence — reappears on refresh, by design)
 └── .map-container (div)    — position:relative; contains all overlays + map
     ├── FilterPanel.jsx     — floating overlay top-left; journey toggles + book pill selector
     ├── MapView.jsx         — D3 SVG map; fills map-container
+    ├── HeroBackdrop.jsx    — ambient in-map backdrop (z-index 1, below FilterPanel/StoryLayer/
+    │                         BookDetailPanel); same 3 hero images crossfade via CSS animation
+    │                         whenever idle (no active journeys, no selected book, timelineYear
+    │                         null — i.e. first load before Entering, or after Clear All/Reset)
     ├── StoryLayer.jsx      — bottom-center map overlay: "▶ Paul's Story" entry button when
     │                         timelineYear is null, else a glass caption card tracking Paul's
     │                         current waypoint (journey badge, city, note, ref, "✍ books being
