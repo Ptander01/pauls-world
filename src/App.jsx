@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import MapView from './components/MapView'
+import HeroBackdrop from './components/HeroBackdrop'
 import FilterPanel from './components/FilterPanel'
 import TimelineBar from './components/TimelineBar'
 import BookDetailPanel from './components/BookDetailPanel'
@@ -267,6 +268,9 @@ export default function App() {
             isPlaying={isPlaying}
             detailJourneyId={detailJourneyId}
             theme={theme}
+          />
+          <HeroBackdrop
+            active={activeJourneys.size === 0 && !selectedBookId && timelineYear === null}
           />
           <StoryLayer
             timelineYear={timelineYear}
